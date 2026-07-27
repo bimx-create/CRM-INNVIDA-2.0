@@ -1,8 +1,7 @@
 // kam-report-ia.js - Generación de Reportes PDF con IA para KAMs
 
 (function() {
-  const GROQ_KEY = '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';
-  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  const GROQ_URL = '/api/groq';
 
   let currentReportMetrics = null;
 
@@ -75,8 +74,7 @@ No uses saludos, solo el contenido del reporte de manera directa y profesional. 
     const res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_KEY}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
