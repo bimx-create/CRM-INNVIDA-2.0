@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CRM INNVIDA — Pro v4 (AI + Firestore)</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <!-- Estilos del nuevo sistema de diseño CRM Pro -->
+  <link rel="stylesheet" href="assets/css/crm-pro.css?v=6">
+</head>
+<body>
+  <!-- Capa de login -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="logo.png" alt="INNVIDA" onerror="this.src='data:image/svg+xml;utf8,<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'50\' cy=\'50\' r=\'40\' fill=\'%230A6EBD\'/></svg>'">
+        <h1>CRM INNVIDA</h1>
+      </div>
+      <p class="login-subtitle">Ingresa tus credenciales para continuar</p>
+      <div class="form-field mb-3">
+        <label class="form-label" for="loginUser">Usuario</label>
+        <input id="loginUser" type="text" class="form-input" autocomplete="off" />
+      </div>
+      <div class="form-field mb-3">
+        <label class="form-label" for="loginPass">Contraseña</label>
+        <input id="loginPass" type="password" class="form-input" />
+      </div>
+      <button id="loginBtn" type="button" class="btn btn-primary w-full" style="justify-content:center; padding:12px; font-size:14px; margin-top:10px;">Iniciar Sesión</button>
+      <p id="loginError" class="login-error">Usuario o contraseña incorrectos.</p>
+    </div>
+  </div>
+
+  <div class="crm-layout">
+    <!-- Header -->
+    <header class="crm-header">
+      <div class="logo">
+        <img src="logo.png" alt="INNVIDA" style="height:32px; filter: drop-shadow(0 0 4px rgba(255,255,255,0.2));" onerror="this.src='data:image/svg+xml;utf8,<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle cx=\'50\' cy=\'50\' r=\'40\' fill=\'%230A6EBD\'/></svg>'">
+        <span class="logo-text">CRM INNVIDA Pro</span>
+      </div>
+      <div class="header-right">
+        <div class="kam-selector">
+          <label>KAM Activo:</label>
+          <select id="kamSel" onchange="window.onKamChange && window.onKamChange(this.value)">
+            <option value="Todos">— Todos —</option>
+          </select>
+        </div>
+        <div class="header-badge" id="headerBadge" title="Mi Perfil">AD</div>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <nav class="crm-nav">
+      <div class="nav-section-title">Principal</div>
+      <a href="#" class="nav-item active" data-target="dashboard">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+        <span>Dashboard KPIs</span>
+      </a>
+      <a href="#" class="nav-item" data-target="kanban-view">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+        <span>Seguimiento Kanban</span>
+      </a>
+      <a href="#" class="nav-item" data-target="kam-videos">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        <span>Desempeño KAMs</span>
+      </a>
+      
+      <div class="nav-section-title">Bases de datos</div>
+      <a href="#" class="nav-item" data-target="medicos">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        <span>Médicos</span>
+        <span class="nav-badge" id="medCountSide">0</span>
+      </a>
+      <a href="#" class="nav-item" data-target="prospeccion">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+        <span>Prospección IA</span>
+      </a>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="crm-main">
+      
+      <!-- VIEW: DASHBOARD -->
+      <div id="view-dashboard" class="crm-view">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Dashboard KAM</h2>
+            <p class="section-sub">Métricas en tiempo real y pipeline.</p>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="generateReportIA" style="color:var(--primary); font-weight:600;">
+              📊 Generar Reporte (IA)
+            </button>
+            <button class="btn btn-primary" id="openRegCot">+ Cotización</button>
+          </div>
+        </div>
+        
+        <div class="kpi-grid mb-4" id="kpiGrid">
+          <!-- KPIs inyectados por kam-dashboard.js -->
+        </div>
+
+        <!-- Filtro de periodo para gráficas -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <span style="font-size:13px; color:var(--text2); font-weight:500;">📊 Métricas del periodo</span>
+          <select id="chartTimeFilter" class="filter-select" style="padding:4px 12px; font-size:12px;" onchange="window.renderCharts(window.__kamSelected||'Todos')">
+            <option value="current">Este mes</option>
+            <option value="last">Mes anterior</option>
+            <option value="all" selected>Histórico</option>
+          </select>
+        </div>
+
+        <div class="chart-grid mb-4">
+          <div class="chart-card">
+            <h3>🏢 Pipeline por Empresa</h3>
+            <div style="height:200px;"><canvas id="chartPipelineEmpresa"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>🍩 Estatus del Pipeline</h3>
+            <div style="height:200px;"><canvas id="chartStatus"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>📍 Médicos por Estado (Top 10)</h3>
+            <div style="height:200px;"><canvas id="chartEstado"></canvas></div>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <div class="chart-card" style="grid-column: 1 / -1;">
+            <h3>📈 Tendencia Mensual del Pipeline (últimos 6 meses)</h3>
+            <div style="height:220px;"><canvas id="chartTendencia"></canvas></div>
+          </div>
+        </div>
+
+        <div class="chart-grid" style="margin-top:16px;">
+          <div class="chart-card" style="grid-column: 1 / -1; max-width: 700px;">
+            <h3>🏆 Ranking KAM (Top Pipeline)</h3>
+            <div id="kamRanking" class="kam-ranking-list">
+              <!-- Ranking inyectado por kam-dashboard.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: KANBAN -->
+      <div id="view-kanban-view" class="crm-view hidden">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Seguimiento de Médicos</h2>
+            <p class="section-sub">Arrastra las tarjetas para cambiar el estatus de seguimiento. Los colores indican prioridad.</p>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="downloadSegXLSX" style="color:var(--green);">📊 Descargar Excel</button>
+          </div>
+        </div>
+        
+        <div class="kanban-board" id="kanbanBoard">
+          <!-- Kanban inyectado por kam-dashboard.js -->
+        </div>
+      </div>
+
+      <!-- VIEW: MEDICOS -->
+      <div id="view-medicos" class="crm-view hidden">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Directorio de Médicos</h2>
+            <p class="section-sub" id="pageInfoMed">Lectura en tiempo real desde Firestore</p>
+          </div>
+          <div class="actions">
+            <span class="badge badge-gray" id="medCount" style="display:none;"></span>
+            <button class="btn btn-ghost" id="refreshMedicos" onclick="location.reload()">↻ Refrescar</button>
+            <button class="btn btn-ghost" id="downloadMedCSV">CSV</button>
+            <button class="btn btn-ghost" id="downloadMedXLSX">Excel</button>
+            <button class="btn btn-primary" id="openRegMed" style="gap:6px;">
+              <svg fill="none" stroke="currentColor" width="16" height="16" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              Nuevo Médico
+            </button>
+          </div>
+        </div>
+
+        <div class="filters-bar mb-3 card card-sm">
+          <div class="search-box">
+            <svg fill="none" stroke="currentColor" width="16" height="16" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input id="qMed" placeholder="Buscar nombre, hospital...">
+          </div>
+          <select id="fEstado" class="filter-select"><option value="">Estado (todos)</option></select>
+          <select id="fRegion" class="filter-select"><option value="">Región (todas)</option></select>
+          <select id="fKam" class="filter-select"><option value="">KAM (todos)</option></select>
+          
+          <select id="sortOrder" class="filter-select"><option value="desc">Nuevos primero</option><option value="asc">Viejos primero</option></select>
+          <select id="pageSizeMed" class="filter-select"><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+        </div>
+
+        <div class="table-wrap">
+          <table class="crm-table" id="tableMedicos">
+            <thead>
+              <tr>
+                <th>Médico</th>
+                <th>Contacto</th>
+                <th>Hospital & Especialidad</th>
+                <th>Ubicación</th>
+                <th>KAM</th>
+                <th style="text-align:right">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-medicos">
+              <!-- Rendereado por window.renderMedicos -->
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button class="btn btn-ghost btn-sm" id="prevMed">Anterior</button>
+          <button class="btn btn-ghost btn-sm" id="nextMed">Siguiente</button>
+        </div>
+      </div>
+
+      <div id="modalRegMed" class="modal-backdrop">
+        <div class="modal" style="width:min(400px,95vw);max-height:90vh;overflow-y:auto;background:var(--bg);border:1px solid var(--border2);border-radius:12px;">
+          <div class="modal-header" style="border-bottom:none;padding-bottom:0;">
+            <h3 class="modal-title" id="modalRegMedTitle" style="font-size:16px;">Registrar nuevo médico</h3>
+          </div>
+          <form id="formRegMed" class="form-grid" autocomplete="off" style="padding-top:16px;">
+            <input type="hidden" id="editMedId">
+
+            <!-- Datos personales -->
+            <div class="form-field full-width">
+              <label class="form-label">Nombre</label>
+              <input name="Nombre" id="regNombre" class="form-input" required placeholder="Nombre completo">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Teléfono</label>
+              <input name="Teléfono" id="regTelefono" class="form-input" placeholder="Teléfono">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Dirección</label>
+              <input name="Dirección" id="regDireccion" class="form-input" placeholder="Dirección">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Hospital</label>
+              <input name="Hospital" id="regHospital" class="form-input" placeholder="Hospital">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Red Social</label>
+              <input name="Red Social" id="regRedSocial" class="form-input" placeholder="Red Social">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Especialidad</label>
+              <input name="Especialidad" id="regEspecialidad" class="form-input" placeholder="Especialidad">
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Estado</label>
+              <input name="Estado" id="regEstado" class="form-input" list="listEstados" placeholder="Estado">
+              <datalist id="listEstados">
+                <option>Aguascalientes</option><option>Baja California</option><option>Baja California Sur</option>
+                <option>Campeche</option><option>Chiapas</option><option>Chihuahua</option>
+                <option>Ciudad de México</option><option>Coahuila</option><option>Colima</option>
+                <option>Durango</option><option>Estado de México</option><option>Guanajuato</option>
+                <option>Guerrero</option><option>Hidalgo</option><option>Jalisco</option>
+                <option>Michoacán</option><option>Morelos</option><option>Nayarit</option>
+                <option>Nuevo León</option><option>Oaxaca</option><option>Puebla</option>
+                <option>Querétaro</option><option>Quintana Roo</option><option>San Luis Potosí</option>
+                <option>Sinaloa</option><option>Sonora</option><option>Tabasco</option>
+                <option>Tamaulipas</option><option>Tlaxcala</option><option>Veracruz</option>
+                <option>Yucatán</option><option>Zacatecas</option>
+              </datalist>
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Región</label>
+              <input name="Región" id="regRegion" class="form-input" list="listRegiones" placeholder="Región">
+              <datalist id="listRegiones">
+                <option>CENTRO</option><option>ZONA NORTE</option><option>ZONA SUR</option>
+                <option>ZONA ORIENTE</option><option>ZONA PONIENTE</option><option>OCCIDENTE</option>
+              </datalist>
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Gerente / KAM</label>
+              <select name="GERENTE/KAM" id="regKAM" class="form-input">
+                <option value="">Seleccionar...</option>
+              </select>
+            </div>
+            <div class="form-field full-width">
+              <label class="form-label">Base</label>
+              <input name="Base" id="regBase" class="form-input" list="listBases" placeholder="Fuente o campaña">
+              <datalist id="listBases">
+                <option>VISITA</option><option>REFERIDO</option><option>PROSPECTO</option>
+              </datalist>
+            </div>
+
+            <div class="form-field full-width" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+              <div id="regMedStatus" style="font-size:12px;color:var(--text2);"></div>
+              <div style="display:flex;gap:8px;">
+                <button type="button" id="btnLimpiarRegMed" class="btn btn-ghost" onclick="document.getElementById('formRegMed').reset()">Limpiar</button>
+                <button type="submit" id="submitRegMed" class="btn btn-primary">Guardar médico</button>
+                <button type="button" id="closeRegMedBtn" class="btn btn-ghost" onclick="document.getElementById('modalRegMed').classList.remove('open')">Cerrar</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+
+      <div id="view-prospeccion" class="crm-view hidden">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Prospección IA</h2>
+            <p class="section-sub" id="pageInfoProsp">Genera mensajes comerciales automatizados con Inteligencia Artificial.</p>
+          </div>
+          <div class="actions">
+            <span class="badge badge-gray" id="prospCount" style="display:none;"></span>
+            <button class="btn btn-ghost" onclick="window.renderProspeccion()">↻ Refrescar</button>
+          </div>
+        </div>
+
+        <div class="filters-bar mb-3 card card-sm">
+          <div class="search-box">
+            <svg fill="none" stroke="currentColor" width="16" height="16" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input id="qProsp" placeholder="Buscar médico, especialidad...">
+          </div>
+          <select id="fEstadoProsp" class="filter-select"><option value="">Estado (todos)</option></select>
+          <select id="fKamProsp" class="filter-select"><option value="">KAM (todos)</option></select>
+          <select id="pageSizeProsp" class="filter-select"><option>10</option><option selected>20</option><option>50</option></select>
+        </div>
+
+        <div class="table-wrap">
+          <table class="crm-table" id="tableProspeccion">
+            <thead>
+              <tr>
+                <th>Médico</th>
+                <th>Hospital & Especialidad</th>
+                <th>Ubicación</th>
+                <th>Contacto</th>
+                <th style="text-align:right">Prospección IA</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-prospeccion">
+              <!-- Rendereado por JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button class="btn btn-ghost btn-sm" id="prevProsp">Anterior</button>
+          <button class="btn btn-ghost btn-sm" id="nextProsp">Siguiente</button>
+        </div>
+      </div>
+
+      <!-- Modal de Prospección IA -->
+      <div id="modalProspeccionIA" class="modal-backdrop" style="display:none; align-items:center; justify-content:center; z-index:9999;">
+        <div style="background:var(--bg); border:1px solid var(--border2); border-radius:16px; width:min(600px,95vw); box-shadow: 0 24px 60px rgba(0,0,0,0.6);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px 14px; border-bottom:1px solid var(--border2);">
+            <div>
+              <div style="font-size:28px; margin-bottom:4px;">🤖</div>
+              <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text1);">Generador de Mensajes IA</h3>
+              <div id="prospModalSubtitle" style="font-size:13px; color:var(--text2); margin-top:2px;">Cargando...</div>
+            </div>
+            <button onclick="document.getElementById('modalProspeccionIA').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='none'">✕</button>
+          </div>
+          <div style="padding:20px 24px 24px;">
+            <div style="margin-bottom:16px;">
+              <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                Mensaje Generado
+                <button id="btnGenerateMsg" class="btn btn-ghost btn-sm" style="color:var(--primary); padding:4px 8px; font-size:12px;">
+                  ✨ Generar de nuevo
+                </button>
+              </label>
+              <textarea id="prospMessageContent" class="form-input" style="height:150px; resize:vertical; font-family:inherit; line-height:1.5; padding:12px;" placeholder="Generando mensaje..."></textarea>
+            </div>
+            <div style="display:flex; gap:12px; margin-top:20px;">
+              <button id="btnSendWa" class="btn" style="flex:1; background:#25D366; color:white; border:none; justify-content:center; padding:12px; font-weight:600;">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right:8px;"><path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/></svg>
+                Enviar WhatsApp
+              </button>
+              <button id="btnSendEmail" class="btn btn-primary" style="flex:1; justify-content:center; padding:12px; font-weight:600;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                Enviar Correo
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Edición de Reporte IA -->
+      <div id="modalReporteIA" class="modal-backdrop" style="display:none; align-items:center; justify-content:center; z-index:9999;">
+        <div style="background:var(--bg); border:1px solid var(--border2); border-radius:16px; width:min(800px,95vw); max-height:90vh; display:flex; flex-direction:column; box-shadow: 0 24px 60px rgba(0,0,0,0.6);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px 14px; border-bottom:1px solid var(--border2);">
+            <div>
+              <div style="font-size:28px; margin-bottom:4px;">📝</div>
+              <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text1);">Editar Reporte de Desempeño</h3>
+              <div id="reporteModalSubtitle" style="font-size:13px; color:var(--text2); margin-top:2px;">Revisa y ajusta el reporte antes de descargarlo en PDF.</div>
+            </div>
+            <button onclick="document.getElementById('modalReporteIA').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='none'">✕</button>
+          </div>
+          <div style="padding:20px 24px 24px; flex-grow:1; overflow-y:auto; display:flex; flex-direction:column;">
+            <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+              Contenido Generado por IA (Modificable)
+            </label>
+            <textarea id="reporteIAContent" class="form-input" style="flex-grow:1; min-height:250px; resize:vertical; font-family:inherit; line-height:1.6; padding:12px; margin-bottom:20px;"></textarea>
+            
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+              <button onclick="document.getElementById('modalReporteIA').style.display='none'" class="btn btn-ghost">Cancelar</button>
+              <button id="btnDownloadReportPDF" class="btn btn-primary" style="padding:10px 20px; font-weight:600;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- VIEW: KAM VIDEOS -->
+      <div id="view-kam-videos" class="crm-view hidden">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Desempeño por KAM</h2>
+            <p class="section-sub">Selecciona un KAM para ver su avance en CRM y Cotizaciones</p>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" onclick="renderKamVideosGrid()">↻ Refrescar</button>
+          </div>
+        </div>
+
+        <div class="kam-videos-layout" style="display: flex; gap: 24px; align-items: flex-start; margin-top: 20px;">
+          <!-- Grid de videos -->
+          <div class="kam-videos-grid" id="kamVideosGrid" style="flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+            <!-- Renderizado por JS -->
+          </div>
+
+          <!-- Panel lateral de detalles (oculto por defecto) -->
+          <div class="kam-details-panel card" id="kamDetailsPanel" style="width: 350px; display: none; flex-direction: column; gap: 16px; position: sticky; top: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 id="kdName" style="font-size: 18px; font-weight: 600; color: var(--text1); margin: 0;"></h3>
+              <button class="btn btn-ghost btn-sm" onclick="closeKamDetails()">✕</button>
+            </div>
+            
+            <div class="kpi-card" style="background: rgba(10,110,189,0.1); border: 1px solid rgba(10,110,189,0.2);">
+              <div class="kpi-title" style="color: var(--blue-light);">Avance en CRM (Médicos)</div>
+              <div class="kpi-value" id="kdMedicos" style="color: var(--text1); font-size: 28px;">0</div>
+            </div>
+
+            <div class="kpi-card" style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="kpi-title" style="color: var(--green); margin: 0;">Monto en Cotizaciones</div>
+                <select id="kdMonthFilter" class="filter-select" style="padding: 2px 8px; font-size: 12px; height: auto;">
+                  <option value="current">Este mes</option>
+                  <option value="last">Mes anterior</option>
+                  <option value="all">Histórico</option>
+                </select>
+              </div>
+              <div class="kpi-value" id="kdCotizacionesMonto" style="color: var(--text1); font-size: 24px;">$0</div>
+              <div style="font-size: 12px; color: var(--text2); margin-top: 4px;">Registros totales: <span id="kdCotizacionesCount">0</span></div>
+              
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px;">POR EMPRESA</div>
+                <div id="kdCotsEmpresa" style="font-size: 12px; color: var(--text1); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;"></div>
+              </div>
+              
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px;">POR ESTATUS</div>
+                <div id="kdCotsEstatus" style="font-size: 12px; color: var(--text1); display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+            </div>
+
+            <div class="kpi-card" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);">
+              <div class="kpi-title" style="color: var(--amber);">Seguimientos (Kanban)</div>
+              <div class="kpi-value" id="kdSeguimientos" style="color: var(--text1); font-size: 28px;">0</div>
+            </div>
+
+            <!-- Botón de drill-down -->
+            <button id="btnKamDrilldown" onclick="window.openKamDrilldown()" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-weight:600; margin-top:4px; background: linear-gradient(135deg, #7C3AED, #0A6EBD);">
+              📊 Ver Médicos y Seguimientos
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal Drill-down de KAM Individual -->
+  <div id="modalKamDrilldown" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10000; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;">
+    <div style="background:var(--bg); border:1px solid var(--border2); border-radius:20px; width:min(1000px,95vw); box-shadow:0 30px 80px rgba(0,0,0,0.7); margin:auto;">
+
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 28px 16px; border-bottom:1px solid var(--border2);">
+        <div>
+          <div style="font-size:24px; margin-bottom:2px;">&#x1F9D1;&#x200D;&#x1F4BC;</div>
+          <h3 id="drilldownKamName" style="margin:0; font-size:22px; font-weight:800; color:var(--text1);">KAM</h3>
+          <div id="drilldownKamSubtitle" style="font-size:13px; color:var(--text2); margin-top:2px;">Médicos y seguimientos</div>
+        </div>
+        <button onclick="document.getElementById('modalKamDrilldown').style.display='none'" style="background:none;border:1px solid var(--border2);color:var(--text2);font-size:18px;cursor:pointer;padding:6px 12px;border-radius:8px;">&#x2715; Cerrar</button>
+      </div>
+
+      <div style="padding:24px 28px;">
+
+        <!-- KPI pills resumen -->
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px;" id="drilldownKPIs"></div>
+
+        <!-- 2 Charts lado a lado -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px;">
+          <div class="chart-card">
+            <h3 style="font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:.5px;">&#x1F9EC; Médicos por Especialidad</h3>
+            <div style="height:210px;"><canvas id="drillChartEsp"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3 style="font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px; text-transform:uppercase; letter-spacing:.5px;">&#x1F4CA; Seguimientos por Etapa</h3>
+            <div style="height:210px;"><canvas id="drillChartSeg"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Tabla de médicos -->
+        <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="font-size:14px; font-weight:700; color:var(--text1); margin:0;">&#x1F4CB; Cartera de Médicos</h3>
+          <input id="drillSearchMed" class="form-input" placeholder="Buscar..." style="width:200px; padding:6px 12px; font-size:13px;">
+        </div>
+        <div class="table-wrap" style="max-height:320px; overflow-y:auto;">
+          <table class="crm-table" id="drillTableMedicos">
+            <thead><tr>
+              <th>Médico</th>
+              <th>Hospital &amp; Especialidad</th>
+              <th>Estado</th>
+              <th>Teléfono</th>
+              <th>Etapa Kanban</th>
+            </tr></thead>
+            <tbody id="drillTbodyMedicos"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Drill-down de KPIs -->
+  <div id="kpiDetailModal" class="modal-backdrop" style="display:none; align-items:center; justify-content:center;">
+    <div style="background:var(--bg); border:1px solid var(--border2); border-radius:16px; width:min(580px,95vw); max-height:88vh; overflow-y:auto; box-shadow: 0 24px 60px rgba(0,0,0,0.6);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px 14px; border-bottom:1px solid var(--border2); position:sticky; top:0; background:var(--bg); z-index:1;">
+        <div>
+          <div id="kpiModalIcon" style="font-size:28px; line-height:1; margin-bottom:4px;"></div>
+          <h3 id="kpiModalTitle" style="margin:0; font-size:18px; font-weight:700; color:var(--text1);"></h3>
+          <div id="kpiModalSubtitle" style="font-size:13px; color:var(--text2); margin-top:2px;"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <select id="kpiModalTimeFilter" class="filter-select" style="padding:4px 10px; font-size:12px; height:auto;" onchange="window.refreshKpiModal()">
+            <option value="current">Este mes</option>
+            <option value="last">Mes anterior</option>
+            <option value="all">Histórico</option>
+          </select>
+          <button onclick="document.getElementById('kpiDetailModal').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='none'">✕</button>
+        </div>
+      </div>
+      <div id="kpiModalBody" style="padding:20px 24px 24px;">
+        <!-- Contenido inyectado por openKpiModal() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de registro de cotizaciones -->
+  <div id="modalRegCot" class="modal-backdrop">
+    <div class="modal" style="width: min(600px, 95vw);">
+      <div class="modal-header">
+        <h3 class="modal-title">Registrar nueva cotización</h3>
+        <button id="closeRegCot" class="modal-close">✕</button>
+      </div>
+      <form id="formRegCot" class="form-grid">
+        <div class="form-field"><label class="form-label">FECHA</label><input name="FECHA" class="form-input" required></div>
+        <div class="form-field"><label class="form-label">MEDICO</label><input name="MEDICO" class="form-input" required></div>
+        <div class="form-field"><label class="form-label">KAM</label><input name="KAM" class="form-input" required></div>
+        <div class="form-field"><label class="form-label">R0 DE INFU</label><input name="R0 DE INFU" class="form-input"></div>
+        <div class="form-field"><label class="form-label">PACIENTE</label><input name="PACIENTE" class="form-input"></div>
+        <div class="form-field"><label class="form-label">PAGO</label><input name="PAGO" class="form-input"></div>
+        <div class="form-field"><label class="form-label">STATUS</label><input name="STATUS" class="form-input" value="PENDIENTE"></div>
+        <div class="form-field"><label class="form-label">ESQUEMA</label><input name="ESQUEMA" class="form-input"></div>
+        <div class="form-field"><label class="form-label">VALOR</label><input name="VALOR" class="form-input" placeholder="Ej: 35972.47"></div>
+        <div class="form-field"><label class="form-label">CONFIRMADO</label><input name="CONFIRMADO" class="form-input"></div>
+        <div class="form-field full-width">
+          <label class="form-label">Motivo</label>
+          <textarea name="MOTIVO" class="form-textarea" placeholder="Descripción..."></textarea>
+        </div>
+        <div class="form-field full-width" style="display: flex; flex-direction: row; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+          <button type="button" id="cancelRegCot" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cotización</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal PubMed -->
+  <div id="modalPubMed" class="modal-backdrop">
+    <div class="modal" style="width: min(700px, 97vw); max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg fill="none" stroke="currentColor" width="22" height="22" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+          PubMed: <span id="pmDocName" style="color: var(--blue-light); margin-left: 4px;"></span>
+        </h3>
+        <button id="closePubMed" class="modal-close" onclick="document.getElementById('modalPubMed').classList.remove('open')">✕</button>
+      </div>
+
+      <!-- Tabs -->
+      <div id="pmTabs" style="display:none; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0 20px;">
+        <div style="display:flex; gap:0;">
+          <button id="tabBtnAuthors" onclick="switchPmTab('authors')"
+            style="padding: 10px 18px; font-size: 13px; font-weight: 600; background: none; border: none; border-bottom: 2px solid var(--blue-light); color: var(--blue-light); cursor: pointer; transition: all 0.2s;">
+            👥 Colaboradores
+          </button>
+          <button id="tabBtnArticles" onclick="switchPmTab('articles')"
+            style="padding: 10px 18px; font-size: 13px; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text2); cursor: pointer; transition: all 0.2s;">
+            📄 Publicaciones
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+        <!-- Loading -->
+        <div id="pmLoading" style="text-align: center; color: var(--text2); padding: 48px 0;">
+          <div style="font-size: 32px; margin-bottom: 14px; animation: spin 1.5s linear infinite; display:inline-block;">⏳</div>
+          <div style="font-size:15px;">Buscando publicaciones y extrayendo red de coautores...</div>
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.6;">Conectando con la Biblioteca Nacional de Medicina (EE.UU.)</div>
+        </div>
+
+        <!-- Error -->
+        <div id="pmError" style="display: none; text-align: center; color: var(--amber); padding: 20px;"></div>
+
+        <!-- Tab: Colaboradores -->
+        <div id="tabAuthors" style="display: none;">
+          <div style="margin-bottom: 14px; font-size: 13px; color: var(--text2);">
+            Se analizaron <strong id="pmArticlesCount" style="color: var(--text1);">0</strong> artículos.
+            Colaboradores más frecuentes:
+          </div>
+          <div id="pmAuthorsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
+        <!-- Tab: Publicaciones -->
+        <div id="tabArticles" style="display: none;">
+          <div style="margin-bottom: 14px; font-size: 13px; color: var(--text2);">
+            Artículos publicados en PubMed (más recientes primero):
+          </div>
+          <div id="pmArticlesList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchPmTab(tab) {
+      const isAuthors = tab === 'authors';
+      document.getElementById('tabAuthors').style.display  = isAuthors ? 'block' : 'none';
+      document.getElementById('tabArticles').style.display = isAuthors ? 'none' : 'block';
+      document.getElementById('tabBtnAuthors').style.color = isAuthors ? 'var(--blue-light)' : 'var(--text2)';
+      document.getElementById('tabBtnAuthors').style.borderBottomColor = isAuthors ? 'var(--blue-light)' : 'transparent';
+      document.getElementById('tabBtnArticles').style.color = !isAuthors ? 'var(--blue-light)' : 'var(--text2)';
+      document.getElementById('tabBtnArticles').style.borderBottomColor = !isAuthors ? 'var(--blue-light)' : 'transparent';
+    }
+  </script>
+
+  <!-- SCRIPT: Navegación y Login (Ejecutado de inmediato) -->
+  <script>
+    const $$ = s => Array.from(document.querySelectorAll(s));
+    
+    // Nav logic
+    $$('.nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        $$('.nav-item').forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        const target = item.getAttribute('data-target');
+        $$('.crm-view').forEach(view => {
+          if (view.id === 'view-' + target) view.classList.remove('hidden');
+          else view.classList.add('hidden');
+        });
+        
+        if (target === 'dashboard' && window.initDashboard) {
+          window.initDashboard();
+        } else if (target === 'kanban-view' && window.renderKanban) {
+          window.renderKanban(window.__kamSelected || 'Todos');
+        }
+      });
+    });
+
+    // Login logic
+    const overlay = document.getElementById('loginOverlay');
+    const uIn = document.getElementById('loginUser');
+    const pIn = document.getElementById('loginPass');
+    const lBtn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
+
+    const VALID_USERS = {
+      'innvida': '11021102',
+      'director': 'Dir3ctor#2026',
+      'BI': 'BI_Data$2026',
+      'kam': 'KamVentas!2026',
+      'appledemo': '1234'
+    };
+
+    function doLogin() {
+      const u = (uIn.value || '').trim();
+      const p = pIn.value || '';
+      
+      // Admins
+      if (['innvida','director','BI','appledemo','kam'].includes(u) && VALID_USERS[u] === p) {
+        window.__loggedUser = u;
+        window.__kamSelected = 'Todos';
+        finishLogin();
+      } 
+      // Si el password es kam
+      else if (p === 'kam') {
+        window.__loggedUser = u;
+        window.__kamSelected = 'Todos'; // Permitir que ellos lo seleccionen libremente en el listado
+        finishLogin();
+      } 
+      else if (VALID_USERS[u] && VALID_USERS[u] === p) {
+        window.__loggedUser = u;
+        window.__kamSelected = u.toUpperCase();
+        finishLogin();
+      } 
+      else {
+        err.style.display = 'block';
+        pIn.value = ''; pIn.focus();
+      }
+    }
+    
+    function finishLogin() {
+      overlay.style.display = 'none';
+      err.style.display = 'none';
+
+      // Mostrar spinner mientras esperamos datos
+      const kpiGrid = document.getElementById('kpiGrid');
+      if (kpiGrid) kpiGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">⏳ Cargando datos...</div>';
+
+      // Esperar a que MED_BASE tenga datos (Firestore puede tardar 1-5s)
+      let attempts = 0;
+      const MAX_ATTEMPTS = 50; // 15 segundos máx.
+
+      function tryPopulate() {
+        attempts++;
+        const hasMed = window.MED_BASE && window.MED_BASE.length > 0;
+        const ks = document.getElementById('kamSel');
+
+        if (hasMed || attempts > MAX_ATTEMPTS) {
+          // 1. Hidratar selector de KAMs con los nombres reales
+          if (ks && window.getKAMs) {
+            const kams = window.getKAMs();
+            ks.innerHTML = '<option value="Todos">— Todos los KAMs —</option>' +
+              kams.map(k => `<option value="${k}">${k}</option>`).join('');
+          }
+
+          // 2. Establecer estado del selector según tipo de usuario
+          const kam = window.__kamSelected || 'Todos';
+          if (ks) {
+            ks.disabled = (kam !== 'Todos');
+            ks.value = kam;
+          }
+
+          // 3. Renderizar dashboard completo
+          if (window.onKamChange) window.onKamChange(kam);
+
+        } else {
+          // Reintentar en 300ms
+          setTimeout(tryPopulate, 300);
+        }
+      }
+
+      // Primer intento después de 500ms (dar tiempo a que carguen los scripts)
+      setTimeout(tryPopulate, 500);
+    }
+
+    lBtn.addEventListener('click', doLogin);
+    pIn.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    
+    // Modal cotizaciones event listeners
+    const modalCot = document.getElementById('modalRegCot');
+    document.getElementById('openRegCot')?.addEventListener('click', () => modalCot.classList.add('open'));
+    document.getElementById('closeRegCot')?.addEventListener('click', () => modalCot.classList.remove('open'));
+    document.getElementById('cancelRegCot')?.addEventListener('click', () => modalCot.classList.remove('open'));
+    document.getElementById('formRegCot')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert("Cotización guardada exitosamente");
+      modalCot.classList.remove('open');
+      document.getElementById('formRegCot').reset();
+    });
+  </script>
+
+  <!-- SCRIPT: Core de la UI, tablas y renderers base -->
+  <script>
+    // Variables globales requeridas por scripts externos
+    window.FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAyksNhyRX-7QnZSOF27txNU-_SeMoOGps",
+      authDomain: "crm-innvida-76e2e.firebaseapp.com",
+      projectId: "crm-innvida-76e2e",
+      storageBucket: "crm-innvida-76e2e.firebasestorage.app",
+      messagingSenderId: "865341286325",
+      appId: "1:865341286325:web:9fe061fa3c2c7fea4e9bfc"
+    };
+
+    let MED_BASE = [], COT_BASE = [];
+    async function loadJSON(path) { const r = await fetch(path+'?v='+(Date.now())); return await r.json(); }
+    const norm = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    /* === Renderizador Oficial de MÉDICOS === */
+    let VIEW_MED = [];
+    let medPage = 1, medSize = 20;
+
+    window.renderMedicos = function(docs) {
+      if (Array.isArray(docs)) window.MED_BASE = [...docs];
+      applyMedFilters();
+    };
+
+    function applyMedFilters() {
+      const q = norm(document.getElementById('qMed').value || '');
+      const est = document.getElementById('fEstado').value || '';
+      const reg = document.getElementById('fRegion').value || '';
+      const kam = document.getElementById('fKam').value || '';
+      const selectedKam = window.__kamSelected || 'Todos';
+
+      VIEW_MED = (window.MED_BASE || []).filter(m => {
+        // Obliga el filtro a nivel KAM si no es admin
+        if (selectedKam !== 'Todos') {
+          const mKam = (m['GERENTE/KAM'] || m.kam || '').toUpperCase();
+          if (mKam !== selectedKam) return false;
+        }
+
+        const matchQ = !q || [m.Nombre, m.nombre, m.Hospital, m.hospital, m.Especialidad, m.especialidad].some(v => norm(v).includes(q));
+        const matchEst = !est || (m.Estado || m.estado || '') === est;
+        const matchReg = !reg || (m.Región || m.Region || m.region || '') === reg;
+        const matchKam = !kam || (m['GERENTE/KAM'] || m.kam || '') === kam;
+
+        return matchQ && matchEst && matchReg && matchKam;
+      });
+
+      const order = document.getElementById('sortOrder')?.value || 'desc';
+      VIEW_MED.sort((a,b) => {
+        const ta = (a.createdAt && a.createdAt.toDate) ? a.createdAt.toDate().getTime() : 0;
+        const tb = (b.createdAt && b.createdAt.toDate) ? b.createdAt.toDate().getTime() : 0;
+        return order === 'asc' ? (ta - tb) : (tb - ta);
+      });
+
+      medPage = 1;
+      paintMedicos();
+      const mc = document.getElementById('medCountSide');
+      if (mc) mc.textContent = window.MED_BASE.length;
+    }
+
+    function paintMedicos() {
+      const tb = document.querySelector('#tbody-medicos');
+      if (!tb) return;
+      tb.innerHTML = '';
+      medSize = parseInt(document.getElementById('pageSizeMed')?.value || '20', 10);
+      const slice = VIEW_MED.slice((medPage - 1) * medSize, medPage * medSize);
+
+      if (!slice.length) { tb.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding: 40px">Sin resultados</td></tr>'; return; }
+
+      slice.forEach(m => {
+        const tr = document.createElement('tr');
+        const nombre = m.Nombre || m.nombre || '—';
+        const initial = nombre.replace(/Dr\.\s*|Dra\.\s*/ig, '').charAt(0).toUpperCase() || 'M';
+        tr.innerHTML = `
+          <td>
+            <div class="name-cell">
+              <div class="avatar">${initial}</div>
+              <div>
+                <div class="font-semibold">${nombre}</div>
+                <div class="text-xs text-muted">${m.Base || m.base || 'Sin base'}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="font-semibold">${m.Teléfono || m.telefono || m.tel || '—'}</div>
+            <div class="text-xs text-muted truncate" style="max-width:150px" title="${m.Dirección || m.direccion || ''}">${m.Dirección || m.direccion || '—'}</div>
+          </td>
+          <td>
+            <div class="font-semibold truncate" style="max-width:200px" title="${m.Hospital || m.hospital || ''}">${m.Hospital || m.hospital || '—'}</div>
+            <div class="text-xs text-muted">${m.Especialidad || m.especialidad || '—'}</div>
+          </td>
+          <td>
+            <div class="font-semibold">${m.Estado || m.estado || '—'}</div>
+            <div class="text-xs text-muted">${m.Región || m.Region || m.region || '—'}</div>
+          </td>
+          <td>
+            <div class="font-semibold">${m['GERENTE/KAM'] || m.kam || '—'}</div>
+          </td>
+          <td class="action-cell">
+            <button class="btn btn-ghost btn-sm btn-followup" data-id="${m.id || ''}">+ Seg.</button>
+          </td>
+        `;
+        tb.appendChild(tr);
+      });
+
+      const pages = Math.max(1, Math.ceil(VIEW_MED.length / medSize));
+      document.getElementById('pageInfoMed').textContent = `Mostrando ${slice.length} de ${VIEW_MED.length} — Página ${medPage}/${pages}`;
+    }
+
+    /* === COTIZACIONES === */
+    let VIEW_COT = [];
+    let cotPage = 1, cotSize = 20;
+
+    async function initCots() {
+      try {
+        let data = window.COTIZACIONES_DATA || [];
+        window.COT_BASE = data.map(r => ({
+          id: r.ID || r.id || '',
+          FECHA: r.FECHA || r.fecha || '',
+          MEDICO: r.MEDICO || r.medico || '',
+          KAM: r.KAM || r.kam || '',
+          'R0 DE INFU': r['R0 DE INFU'] || r.r0DeInfu || '',
+          PACIENTE: r.PACIENTE || r.paciente || '',
+          PAGO: r.PAGO || r.pago || '',
+          STATUS: r.STATUS || r.status || '',
+          ESQUEMA: r.ESQUEMA || r.esquema || '',
+          VALOR: r.VALOR || r.valor || '',
+          CONFIRMADO: r.CONFIRMADO || r.confirmado || ''
+        }));
+        const estados = [...new Set(window.COT_BASE.map(r => r['STATUS'] || 'Pendiente'))];
+        const sel = document.getElementById('fEstadoCot');
+        if (sel) sel.innerHTML = '<option value="">Estado (todos)</option>' + estados.map(v => `<option>${v}</option>`).join('');
+      } catch (e) {
+        console.error("Error al procesar cotizaciones", e);
+      }
+      applyCotFilters();
+    }
+
+    function applyCotFilters() {
+      const qEl = document.getElementById('qCot');
+      const estEl = document.getElementById('fEstadoCot');
+      const q = norm(qEl ? qEl.value : '');
+      const est = estEl ? estEl.value : '';
+      const selectedKam = window.__kamSelected || 'Todos';
+
+      VIEW_COT = window.COT_BASE.filter(c => {
+        if (selectedKam !== 'Todos') {
+          if ((c['KAM'] || '').toUpperCase() !== selectedKam) return false;
+        }
+        const matchQ = !q || Object.values(c).some(v => norm(v).includes(q));
+        const matchEst = !est || (c['STATUS'] || '').toUpperCase() === est.toUpperCase();
+        return matchQ && matchEst;
+      });
+
+      cotPage = 1;
+      paintCotizaciones();
+    }
+
+    function paintCotizaciones() {
+      const tb = document.querySelector('#tableCots tbody');
+      if (!tb) return;
+      tb.innerHTML = '';
+      cotSize = parseInt(document.getElementById('pageSizeCot')?.value || '20', 10);
+      const slice = VIEW_COT.slice((cotPage - 1) * cotSize, cotPage * cotSize);
+
+      if (!slice.length) { tb.innerHTML = '<tr><td colspan="7" class="text-muted text-center" style="padding: 40px">Sin resultados</td></tr>'; return; }
+
+      slice.forEach((r, i) => {
+        const val = parseFloat((r['VALOR']||'0').toString().replace(/[^0-9.-]+/g,""));
+        const fmtVal = isNaN(val) ? r['VALOR'] : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val);
+        const stat = (r['STATUS']||'').toUpperCase();
+        let badgeColor = 'gray';
+        if (stat.includes('CONFIRM')) badgeColor = 'green';
+        else if (stat.includes('PENDIENT')) badgeColor = 'amber';
+        
+        tb.innerHTML += `
+          <tr>
+            <td class="text-muted text-xs">${((cotPage - 1) * cotSize) + i + 1}</td>
+            <td>
+              <div class="font-semibold">${r['FECHA']||'—'}</div>
+              <div class="text-xs text-muted">KAM: ${r['KAM']||'—'}</div>
+            </td>
+            <td>
+              <div class="font-semibold truncate" style="max-width:180px">${r['MEDICO']||'—'}</div>
+              <div class="text-xs text-muted">Pac: ${r['PACIENTE']||'—'}</div>
+            </td>
+            <td>${r['ESQUEMA']||'—'}</td>
+            <td><span class="badge badge-${badgeColor}">${stat}</span></td>
+            <td>
+              <div class="font-bold" style="color:var(--blue-light)">${fmtVal}</div>
+              <div class="text-xs text-muted">${r['PAGO']||'—'}</div>
+            </td>
+            <td class="text-xs text-muted truncate" style="max-width:180px" title="${r['MOTIVO']||''}">${r['MOTIVO']||'—'}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Bindings
+    ['qMed', 'fEstado', 'fRegion', 'fKam', 'sortOrder'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', applyMedFilters);
+      document.getElementById(id)?.addEventListener('change', applyMedFilters);
+    });
+    document.getElementById('pageSizeMed')?.addEventListener('change', paintMedicos);
+
+    ['qCot', 'fEstadoCot'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', applyCotFilters);
+      document.getElementById(id)?.addEventListener('change', applyCotFilters);
+    });
+    document.getElementById('pageSizeCot')?.addEventListener('change', paintCotizaciones);
+
+    document.getElementById('prevMed')?.addEventListener('click', () => { if(medPage > 1) { medPage--; paintMedicos(); } });
+    document.getElementById('nextMed')?.addEventListener('click', () => { if(medPage < Math.ceil(VIEW_MED.length/medSize)) { medPage++; paintMedicos(); } });
+    
+    document.getElementById('prevCot')?.addEventListener('click', () => { if(cotPage > 1) { cotPage--; paintCotizaciones(); } });
+    document.getElementById('nextCot')?.addEventListener('click', () => { if(cotPage < Math.ceil(VIEW_COT.length/cotSize)) { cotPage++; paintCotizaciones(); } });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initCots();
+    });
+  </script>
+
+  <!-- SCRIPT: Módulos Pro e Integraciones Legacy -->
+  <script src="cotizaciones.js?v=36"></script>
+  <script src="assets/js/firebase_init.js?v=36"></script>
+  <script src="assets/js/kam-dashboard.js?v=36"></script>
+  <script src="assets/js/medicos_realtime_override.js?v=36"></script>
+  <script src="assets/js/followup_simple.js?v=36"></script>
+  <script src="assets/js/medico-registro.js?v=36"></script>
+  <script src="assets/js/ia-assistant.js?v=36"></script>
+  <script src="assets/js/kam-videos.js?v=36"></script>
+  <script src="assets/js/pubmed-api.js?v=36"></script>
+  <script src="assets/js/prospeccion.js?v=36"></script>
+  <script src="assets/js/kam-report-ia.js?v=36"></script>
+  <script src="assets/js/kam-drilldown.js?v=36"></script>
+
+</body>
+</html>

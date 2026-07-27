@@ -1,0 +1,3 @@
+:root{}
+/* Fallback: oculta cualquier botón legacy de borrado si quedara en DOM */
+.btn-del, button.btn-del { display:none !important; }

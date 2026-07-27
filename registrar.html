@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registrar — CRM INNVIDA v3</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0b0f15; --card:#0f1623; --ring:#1f2937; --muted:#9aa4b2; --text:#e5e7eb; --accent:#0A497B; --accent2:#08385f; }
+    *{ box-sizing:border-box } body{ margin:0; background:linear-gradient(180deg,#0b0f15 0%, #0d1117 100%); font-family:Inter,system-ui,Segoe UI,Arial; color:var(--text); }
+    header{ display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid #1e293b; background:#0d1117; position:sticky; top:0; }
+    header img{ height:44px } header a{ margin-left:auto; color:#93c5fd; text-decoration:none; font-weight:600 } header a:hover{ text-decoration:underline }
+    .wrap{ max-width:980px; margin:22px auto; padding:0 14px; } .tabs{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .tab{ padding:10px 14px; border-radius:12px; background:#0f1623; border:1px solid #1f2937; cursor:pointer; color:#93c5fd; font-weight:700; }
+    .tab.active{ background:linear-gradient(180deg,var(--accent),var(--accent2)); color:white; border-color:var(--accent); box-shadow:0 10px 30px rgba(10,73,123,.35); }
+    .card{ background:#0f1623; border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 14px 44px rgba(2,6,23,.35); }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field{ display:flex; flex-direction:column; gap:6px; } label{ color:#cbd5e1; font-size:13px }
+    input, select, textarea{ padding:10px 12px; border-radius:10px; border:1px solid #253041; background:#0b1220; color:#e5e7eb; font-size:14px; }
+    textarea{ min-height:110px } .actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:12px; }
+    .btn{ padding:10px 14px; border-radius:12px; border:1px solid #1f2937; background:var(--accent); color:white; font-weight:700; cursor:pointer; }
+    .btn.ghost{ background:transparent; color:#93c5fd; } .ok{ background:#065f46 !important; border-color:#0c8e6f !important; }
+    .msg{ margin-top:10px; padding:10px; border-radius:10px; background:#0b1220; border:1px solid #1f2937; color:#cbd5e1; display:none; }
+    @media (max-width:820px){ .grid{ grid-template-columns:1fr } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="INNVIDA">
+    <strong>Registro · CRM INNVIDA v3</strong>
+    <a href="index.html">⬅ Volver al CRM</a>
+  </header>
+
+  <div class="wrap">
+    <div class="tabs">
+      <div class="tab active" data-tab="medicos">👨‍⚕️ Médicos</div>
+      <div class="tab" data-tab="cotizaciones">💼 Cotizaciones</div>
+      <div class="tab" data-tab="seguimientos">🗓️ Seguimientos</div>
+    </div>
+
+    <section id="medicos" class="card tabpane">
+      <div class="grid">
+        <div class="field"><label>Nombre</label><input id="m_nombre" required></div>
+        <div class="field"><label>Teléfono</label><input id="m_tel"></div>
+        <div class="field"><label>Dirección</label><input id="m_dir"></div>
+        <div class="field"><label>Hospital</label><input id="m_hosp"></div>
+        <div class="field"><label>Red Social</label><input id="m_red"></div>
+        <div class="field"><label>Especialidad</label><input id="m_esp"></div>
+        <div class="field"><label>Estado</label><input id="m_estado"></div>
+        <div class="field"><label>Región</label><input id="m_region"></div>
+        <div class="field"><label>Gerente / KAM</label><input id="m_kam"></div>
+        <div class="field"><label>Base</label><input id="m_base" placeholder="Fuente o campaña"></div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="clearMed()">Limpiar</button>
+        <button class="btn" onclick="saveMedico()">Guardar médico</button>
+      </div>
+      <div id="msgMed" class="msg"></div>
+    </section>
+
+    <section id="cotizaciones" class="card tabpane" style="display:none;">
+      <div class="grid">
+        <div class="field"><label>Paciente / Empresa</label><input id="c_pac" required></div>
+        <div class="field"><label>Importe</label><input id="c_imp" type="number" min="0" step="0.01"></div>
+        <div class="field"><label>IVA</label><input id="c_iva" type="number" min="0" step="0.01" placeholder="vacío = 16%"></div>
+        <div class="field"><label>Estado</label>
+          <select id="c_estado"><option>Pendiente</option><option>Aceptada</option><option>Rechazada</option></select>
+        </div>
+        <div class="field" style="grid-column:1/-1;"><label>Comentario</label><textarea id="c_com"></textarea></div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="clearCot()">Limpiar</button>
+        <button class="btn" onclick="saveCot()">Guardar cotización</button>
+      </div>
+      <div id="msgCot" class="msg"></div>
+    </section>
+
+    <section id="seguimientos" class="card tabpane" style="display:none;">
+      <div class="grid">
+        <div class="field"><label>Médico</label><input id="s_medico" placeholder="Nombre exacto como en la base"></div>
+        <div class="field"><label>Estado</label>
+          <select id="s_estado"><option>Contactado</option><option>Cita programada</option><option>Negociación</option><option>Cerrado</option><option>Sin respuesta</option></select>
+        </div>
+        <div class="field"><label>Próxima acción / Fecha de visita</label><input id="s_prox" type="date"></div>
+        <div class="field"><label>KAM / Gerente</label><input id="s_kam"></div>
+        <div class="field" style="grid-column:1/-1;"><label>Comentarios</label><textarea id="s_com"></textarea></div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="clearSeg()">Limpiar</button>
+        <button class="btn" onclick="saveSeg()">Guardar seguimiento</button>
+      </div>
+      <div id="msgSeg" class="msg"></div>
+    </section>
+  </div>
+
+<script>
+const ENDPOINTS={
+  medicos:'https://script.google.com/macros/s/AKfycbytb0owLgVmonULxQCiACdmAgcaISGBsmnes7NB0H9p8dxBr_DnW25AZs-pQYitK0M/exec',
+  cotizaciones:'https://script.google.com/macros/s/AKfycbyQZ9-wRfieNWceUr8YmaHW26aWbw9zRRuInnhaDLu_BkVRhp8ILaZiMSvevXohWMWP/exec',
+  seguimiento:'https://script.google.com/macros/s/AKfycbyYfyO0dbqOk_O4x6-pkk8oCPVBfUsfbKtzpsXRpThsxhXHSO2s97mwwYUpY4s2DuA/exe'
+};
+const $=s=>document.querySelector(s);
+const show=(el,msg,ok=false)=>{ el.textContent=msg; el.style.display='block'; el.classList.toggle('ok',ok); setTimeout(()=>{ el.style.display='none'; el.classList.remove('ok'); },3000); };
+const pushLocal=(key, obj)=>{ const arr=JSON.parse(localStorage.getItem(key)||'[]'); arr.push(obj); localStorage.setItem(key, JSON.stringify(arr)); };
+
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  const id=t.dataset.tab; document.querySelectorAll('.tabpane').forEach(p=>p.style.display=p.id===id?'':'none'); location.hash=id;
+})); if(location.hash){ const h=location.hash.replace('#',''); const tab=document.querySelector(`.tab[data-tab="${h}"]`); if(tab) tab.click(); }
+
+function trim(v){ return (v||'').toString().trim(); }
+
+function clearMed(){ ['m_nombre','m_tel','m_dir','m_hosp','m_red','m_esp','m_estado','m_region','m_kam','m_base'].forEach(id=>document.getElementById(id).value=''); }
+async function saveMedico(){
+  const payload={
+    Nombre:trim(document.getElementById('m_nombre').value), Teléfono:trim(document.getElementById('m_tel').value), Dirección:trim(document.getElementById('m_dir').value),
+    Hospital:trim(document.getElementById('m_hosp').value), 'Red Social':trim(document.getElementById('m_red').value), Especialidad:trim(document.getElementById('m_esp').value),
+    Estado:trim(document.getElementById('m_estado').value), Región:trim(document.getElementById('m_region').value), 'GERENTE/KAM':trim(document.getElementById('m_kam').value), Base:trim(document.getElementById('m_base').value)
+  
+  try { if (typeof Swal !== 'undefined') { Swal.fire({icon:'success', title:'✅ Médico guardado con éxito ✓', timer:1600, showConfirmButton:false};
+  if(!payload.Nombre){ show(document.getElementById('msgMed'),'⚠️ El nombre es obligatorio'); return; }
+  try{
+    await fetch(ENDPOINTS.medicos,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add_medico', payload }) });
+    pushLocal('medicos_local_add', payload);
+    show(document.getElementById('msgMed'),'✅ Médico registrado correctamente',true); clearMed();
+  }catch(e){ show(document.getElementById('msgMed'),'❌ Error: '+e.message); }
+}
+
+function clearCot(){ ['c_pac','c_imp','c_iva','c_com'].forEach(id=>document.getElementById(id).value=''); document.getElementById('c_estado').value='Pendiente'; }
+async function saveCot(){
+  const importe=Number(document.getElementById('c_imp').value||0);
+  const ivaRaw=document.getElementById('c_iva').value; const iva=ivaRaw===''? importe*0.16 : Number(ivaRaw);
+  const payload={ paciente:trim(document.getElementById('c_pac').value), importe, iva, estado:document.getElementById('c_estado').value, comentario:trim(document.getElementById('c_com').value) };
+  if(!payload.paciente){ show(document.getElementById('msgCot'),'⚠️ Paciente/Empresa es obligatorio'); return; }
+  try{
+    await fetch(ENDPOINTS.cotizaciones,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add_quote', payload }) });
+    pushLocal('cotizaciones_local_add', { 'Paciente': payload.paciente, 'Importe': importe, 'IVA': iva, 'Estado': payload.estado, 'Comentario': payload.comentario });
+    show(document.getElementById('msgCot'),'✅ Cotización registrada',true); clearCot();
+  }catch(e){ show(document.getElementById('msgCot'),'❌ Error: '+e.message); }
+}
+
+function clearSeg(){ ['s_medico','s_prox','s_kam','s_com'].forEach(id=>document.getElementById(id).value=''); document.getElementById('s_estado').value='Contactado'; }
+async function saveSeg(){
+  const payload={ medico:trim(document.getElementById('s_medico').value), fecha:new Date().toISOString(), estado:document.getElementById('s_estado').value, proxima:trim(document.getElementById('s_prox').value), comentario:trim(document.getElementById('s_com').value), kam:trim(document.getElementById('s_kam').value) };
+  if(!payload.medico){ show(document.getElementById('msgSeg'),'⚠️ Médico es obligatorio'); return; }
+  try{
+    await fetch(ENDPOINTS.seguimiento,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add_follow', payload }) });
+    show(document.getElementById('msgSeg'),'✅ Seguimiento guardado',true); clearSeg();
+  }catch(e){ show(document.getElementById('msgSeg'),'❌ Error: '+e.message); }
+}
+</script>
+</body>
+</html>
