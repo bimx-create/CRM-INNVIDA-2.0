@@ -83,9 +83,36 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
         <span>Prospección IA</span>
       </a>
+      <a href="#" class="nav-item" data-target="cotizaciones">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <span>Cotizaciones</span>
+      </a>
     </nav>
 
-    <!-- Main Content -->
+    <!-- MODAL PARA HABILIDADES DEL KAM -->
+  <div id="kamSkillsModal" class="modal-backdrop" style="display:none; align-items:center; justify-content:center; z-index:9999;">
+    <div style="background:var(--bg); border:1px solid var(--border2); border-radius:16px; width:min(500px,95vw); max-height:88vh; box-shadow: 0 24px 60px rgba(0,0,0,0.6);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:20px 24px 14px; border-bottom:1px solid var(--border2);">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="font-size:24px;">🎯</div>
+          <div>
+            <h2 id="skillsModalTitle" style="font-size:18px; font-weight:700; margin:0; color:var(--text1);">Habilidades del KAM</h2>
+            <div id="skillsModalSubtitle" style="font-size:12px; color:var(--text2); margin-top:2px;">Mapa de competencias y áreas de oportunidad</div>
+          </div>
+        </div>
+        <div>
+          <button onclick="document.getElementById('kamSkillsModal').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='none'">✕</button>
+        </div>
+      </div>
+      <div style="padding:24px;">
+        <div style="position:relative; height:350px; width:100%;">
+          <canvas id="kamSkillsChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DRILL-DOWN (Existente) -->
     <main class="crm-main">
       
       <!-- VIEW: DASHBOARD -->
@@ -305,6 +332,38 @@
         </div>
       </div>
 
+      <!-- VIEW: COTIZACIONES GLOBAL -->
+      <div id="view-cotizaciones" class="crm-view hidden">
+        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <div>
+            <h1 style="font-size:24px; font-weight:700; color:var(--text1); margin-bottom:4px;">Directorio de Cotizaciones</h1>
+            <p style="color:var(--text2); font-size:14px;">Registro global unificado (Sanaré, Nomad, CRM Local)</p>
+          </div>
+          <div style="display:flex; gap:12px;">
+            <input type="text" id="cotSearchInput" placeholder="Buscar por médico o paciente..." style="background:var(--bg2); border:1px solid var(--border2); border-radius:8px; padding:8px 14px; color:var(--text1); min-width:250px;">
+          </div>
+        </div>
+        
+        <div style="background:var(--bg2); border:1px solid var(--border2); border-radius:12px; overflow:hidden;">
+          <table class="table w-100" style="text-align:left; font-size:13px; color:var(--text1);">
+            <thead>
+              <tr style="background:rgba(0,0,0,0.2); border-bottom:1px solid var(--border2);">
+                <th style="padding:12px 16px;">Fecha</th>
+                <th style="padding:12px 16px;">Origen</th>
+                <th style="padding:12px 16px;">Médico</th>
+                <th style="padding:12px 16px;">Paciente</th>
+                <th style="padding:12px 16px;">Monto</th>
+                <th style="padding:12px 16px;">KAM</th>
+                <th style="padding:12px 16px;">Estatus</th>
+                <th style="padding:12px 16px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="cotListTbody">
+              <tr><td colspan="8" style="padding:24px; text-align:center; color:var(--text2);">Cargando cotizaciones...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div id="view-prospeccion" class="crm-view hidden">
         <div class="section-header">
@@ -463,6 +522,17 @@
               <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
                 <div style="font-size: 11px; font-weight: bold; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px;">POR ESTATUS</div>
                 <div id="kdCotsEstatus" style="font-size: 12px; color: var(--text1); display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+            </div>
+
+            <!-- Nuevo bloque Facturado -->
+            <div class="kpi-card" style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);">
+              <div class="kpi-title" style="color: var(--green-light); margin: 0;">Facturado (Pagado)</div>
+              <div class="kpi-value" id="kdFacturadoMonto" style="color: var(--text1); font-size: 24px; margin-top: 8px;">$0</div>
+              
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.5px;">POR EMPRESA (EMBUDO)</div>
+                <div id="kdFacturadoEmpresa" style="font-size: 12px; color: var(--text1); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;"></div>
               </div>
             </div>
 
@@ -1007,18 +1077,19 @@
   </script>
 
   <!-- SCRIPT: Módulos Pro e Integraciones Legacy -->
-  <script src="cotizaciones.js?v=36"></script>
-  <script src="assets/js/firebase_init.js?v=36"></script>
-  <script src="assets/js/kam-dashboard.js?v=36"></script>
-  <script src="assets/js/medicos_realtime_override.js?v=36"></script>
-  <script src="assets/js/followup_simple.js?v=36"></script>
-  <script src="assets/js/medico-registro.js?v=36"></script>
-  <script src="assets/js/ia-assistant.js?v=36"></script>
-  <script src="assets/js/kam-videos.js?v=36"></script>
-  <script src="assets/js/pubmed-api.js?v=36"></script>
-  <script src="assets/js/prospeccion.js?v=36"></script>
-  <script src="assets/js/kam-report-ia.js?v=36"></script>
-  <script src="assets/js/kam-drilldown.js?v=36"></script>
+  <script src="cotizaciones.js?v=57"></script>
+  <script src="assets/js/firebase_init.js?v=57"></script>
+  <script src="assets/js/kam-dashboard.js?v=57"></script>
+  <script src="assets/js/medicos_realtime_override.js?v=57"></script>
+  <script src="assets/js/followup_simple.js?v=57"></script>
+  <script src="assets/js/medico-registro.js?v=57"></script>
+  <script src="assets/js/ia-assistant.js?v=57"></script>
+  <script src="assets/js/kam-videos.js?v=63"></script>
+  <script src="assets/js/pubmed-api.js?v=58"></script>
+  <script src="assets/js/prospeccion.js?v=58"></script>
+  <script src="assets/js/kam-report-ia.js?v=58"></script>
+  <script src="assets/js/kam-drilldown.js?v=58"></script>
+  <script src="assets/js/cotizaciones-view.js?v=64"></script>
 
 </body>
 </html>
