@@ -1,7 +1,8 @@
 // prospeccion.js - Módulo de Prospección Comercial con IA
 
 (function() {
-  const GROQ_URL = '/api/groq';
+  const GROQ_KEY = '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'; // Reusando la key de ia-assistant
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
   let currentProspectMed = null;
   let currentProspectData = [];
@@ -159,7 +160,8 @@ REGLAS PARA EL MENSAJE:
       const res = await fetch(GROQ_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_KEY}`
         },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',

@@ -35,7 +35,7 @@
         if (lower.includes('berenice')) return 'BERENICE ORDAZ';
         if (lower.includes('dayan')) return 'DAYANA'; // atrapa dayan y dayana
         if (lower.includes('alain')) return 'DR. ALAIN RAMÍREZ';
-        if (lower.includes('anayely')) return 'ANAYELY TAPIA';
+        if (lower.includes('anayely') || lower.includes('anayeli')) return 'ANAYELY TAPIA';
         if (lower.includes('raymundo')) return 'RAYMUNDO ACUÑA';
         if (lower.includes('alexis')) return 'ALEXIS';
         if (lower.includes('leonel')) return 'LEONEL CASTILLEJOS';
@@ -43,6 +43,7 @@
         if (lower.includes('maricarmen')) return 'MARICARMEN CASTILLO';
         if (lower.includes('oscar')) return 'OSCAR RANGEL';
         if (lower.includes('marymar')) return 'MARYMAR';
+        if (lower.includes('efrain') || lower.includes('efraín')) return 'EFRAIN';
         
         // Si no coincide con las reglas principales, lo retorna en mayúsculas limpiando espacios
         return cleanKam.toUpperCase();

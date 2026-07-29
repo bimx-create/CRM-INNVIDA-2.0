@@ -2,7 +2,8 @@
 // Tiene acceso al contexto del CRM para responder sobre médicos, cotizaciones y seguimientos.
 
 (function () {
-  const GROQ_URL = '/api/groq';
+  const GROQ_KEY = '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';
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   const MODEL    = 'llama-3.1-8b-instant';
 
   /* ── Obtener contexto CRM del estado global ─────────────────── */
@@ -117,7 +118,8 @@ Si no tienes información suficiente, dilo claramente.`;
     const res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_KEY}`,
       },
       body: JSON.stringify(payload),
     });

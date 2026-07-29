@@ -24,6 +24,26 @@
     'MANUEL AGUIRRE', 'MONICA', 'MÓNICA', 'RAYMUNDO ACUÑA'
   ]);
 
+  /* ── Mapa de aliases: variantes → nombre canónico ────────────────
+     Agrega aquí cualquier nombre que esté capturado diferente en
+     Firebase / cotizaciones vs el CRM.
+  ──────────────────────────────────────────────────────────────── */
+  const KAM_ALIAS = {
+    'ANAYELI':          'ANAYELY TAPIA',
+    'ANAYELI TAPIA':    'ANAYELY TAPIA',
+    'ANAYELY':          'ANAYELY TAPIA',
+    // Agrega más alias aquí si hay otros nombres mal capturados, ej:
+    // 'BERENICE': 'BERENICE ORDAZ',
+  };
+
+  /* Normaliza un nombre de KAM a su forma canónica */
+  window.normalizeKAM = function(k) {
+    const upper = (k || '').trim().toUpperCase();
+    return KAM_ALIAS[upper] || upper;
+  };
+
+
+
   /* ── Extraer KAMs únicos ─────────────────────────────────────── */
   window.getKAMs = function () {
     const medicos = window.MED_BASE || [];
@@ -201,7 +221,8 @@
     
     const filterEl = document.getElementById('kpiModalTimeFilter');
     if (resetFilter && filterEl) {
-      filterEl.value = 'current'; // Default a "Este mes" al abrir
+      const mainFilter = document.getElementById('chartTimeFilter');
+      filterEl.value = mainFilter ? mainFilter.value : 'all'; 
     }
     const timeFilter = filterEl ? filterEl.value : 'all';
     
@@ -432,11 +453,32 @@
       icon = '👨‍⚕️'; title = 'Médicos en Cartera'; subtitle = 'Distribución de la cartera médica';
       const medicos = k.raw.medicos;
       const total = medicos.length;
+      
+      // Normalizadores
+      const normEspecialidad = (raw) => {
+        const str = raw || 'Sin especialidad';
+        const u = str.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (u.includes('ONCO') || u.includes('ONCOL')) return 'Oncología';
+        if (u.includes('HEMA') || u.includes('HEMAT')) return 'Hematología';
+        if (u.includes('REUMA') || u.includes('REUMAT')) return 'Reumatología';
+        if (u.includes('NEURO')) return 'Neurología';
+        return str.split(' ').slice(0,2).join(' '); // Default behavior
+      };
+
+      const normEstado = (raw) => {
+        const str = raw || 'Sin estado';
+        const u = str.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        if (u === 'CDMX' || u === 'CIUDAD DE MEXICO' || u === 'DF' || u.includes('CIUDAD DE MEX')) return 'CDMX';
+        if (u === 'EDOMEX' || u === 'ESTADO DE MEXICO' || u === 'MEXICO' || u === 'EDO MEX' || u === 'EDO DE MEX') return 'Estado de México';
+        if (u === 'NUEVO LEON' || u === 'NL') return 'Nuevo León';
+        // Capitalizar de forma bonita el resto
+        return (raw || 'Sin estado').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      };
 
       // Por especialidad
       const espMap = {};
       medicos.forEach(m => {
-        const esp = (m['Especialidad'] || m.especialidad || 'Sin especialidad').split(' ').slice(0,2).join(' ');
+        const esp = normEspecialidad(m['Especialidad'] || m.especialidad);
         if (!espMap[esp]) espMap[esp] = 0; espMap[esp]++;
       });
       const espHTML = Object.keys(espMap).sort((a,b)=>espMap[b]-espMap[a]).slice(0,8)
@@ -445,7 +487,7 @@
       // Por estado geográfico
       const stateMap = {};
       medicos.forEach(m => {
-        const st = m['Estado'] || m.estado || 'Sin estado';
+        const st = normEstado(m['Estado'] || m.estado);
         if (!stateMap[st]) stateMap[st]=0; stateMap[st]++;
       });
       const stateHTML = Object.keys(stateMap).sort((a,b)=>stateMap[b]-stateMap[a]).slice(0,8)
@@ -724,41 +766,90 @@
   window.renderKamRanking = function (kamName, timeFilter = 'all') {
     const container = document.getElementById('kamRanking');
     if (!container) return;
+    
+    // Update title to "Facturación"
+    const titleEl = document.querySelector('#kamRanking').previousElementSibling;
+    if (titleEl && titleEl.innerHTML.includes('Top Pipeline')) {
+      titleEl.innerHTML = '🏆 Ranking KAM (Facturación)';
+    }
+
     const kams = getKAMs();
     const kamActual = kamName || window.__kamSelected || 'Todos';
     if (!kams.length) { container.innerHTML = '<p class="text-muted text-sm">Sin datos de KAMs</p>'; return; }
 
-    const kamData = kams.map(k => {
-      // Filtrar usando filterData para respetar el tiempo
-      const { localCots, sanareCots, nomadCots } = filterData(k, timeFilter);
-      const parseMonto = (v) => { const p = parseFloat((v||'0').toString().replace(/[^0-9.-]/g,'')); return isNaN(p)?0:p; };
-      
-      let valor = 0;
-      let conf = 0;
-      
-      localCots.forEach(c => {
-        valor += parseMonto(c['VALOR']);
-        if ((c['STATUS']||'').toUpperCase().includes('CONFIRM')) conf++;
-      });
-      sanareCots.forEach(c => {
-        valor += parseMonto(c.total);
-        if ((c.status1||c.status||'').toUpperCase().includes('CONFIRM')) conf++;
-      });
-      nomadCots.forEach(c => {
-        valor += parseMonto(c.total);
-        if ((c.status1||c.status||'').toUpperCase().includes('CONFIRM')) conf++;
-      });
+    const embudoCots = window.EMBUDO_COTS || [];
+    const PAGADOS = ["Pago confirmado", "Pago parcial", "Anticipo recibido"];
 
-      return { kam: k, valor, cots: localCots.length + sanareCots.length + nomadCots.length, conf };
+    const kamData = kams.map(k => {
+      // Obtenemos todas las cotizaciones del KAM sin filtrar por fecha aún
+      const { sanareCots, nomadCots } = filterData(k, 'all'); 
+      
+      // Helper local para checar fechas
+      const isDateInTimeFilter = (dateStr) => {
+        if (timeFilter === 'all') return true;
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d)) return false;
+        const now = new Date();
+        if (timeFilter === 'current') {
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        } else if (timeFilter === 'last') {
+          let tm = now.getMonth() - 1;
+          let ty = now.getFullYear();
+          if (tm < 0) { tm = 11; ty--; }
+          return d.getMonth() === tm && d.getFullYear() === ty;
+        }
+        return true;
+      };
+      
+      let facturado = 0;
+
+      const processCotForRanking = (c, srcProject) => {
+        const srcId = c.id || "";
+        if (!srcId) return;
+        const op = embudoCots.find(e => e.sourceDocId === srcId && e.sourceProject === srcProject);
+        const embudoPay = (op || {}).payment || {};
+        const rawPay = c.payment || {};
+        const status = embudoPay.status || rawPay.status || "";
+        if (!PAGADOS.includes(status)) return;
+        
+        // Verificar filtro de tiempo en la FECHA DE PAGO
+        const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
+        if (!isDateInTimeFilter(datePago)) return;
+
+        const montoPagado = Number(
+          embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
+          rawPay.montoPagado !== undefined ? rawPay.montoPagado :
+          (c.total || 0)
+        );
+        if (!isNaN(montoPagado) && montoPagado > 0) facturado += montoPagado;
+      };
+
+      sanareCots.forEach(c => processCotForRanking(c, "sanare-cotizador"));
+      nomadCots.forEach(c => processCotForRanking(c, "cotizador-nomad"));
+
+      return { kam: k, valor: facturado };
     }).sort((a, b) => b.valor - a.valor);
 
     const maxValor = kamData[0]?.valor || 1;
     const medals = ['gold', 'silver', 'bronze'];
 
+    const getMotivation = (index, totalKams, valor) => {
+      if (valor === 0 && index > 2) return "¡Vamos, tú puedes! Es momento de cerrar esos tratos.";
+      if (index === 0) return "¡Imparable! Liderando el mes con todo.";
+      if (index === 1) return "¡Excelente trabajo! A un paso de la cima.";
+      if (index === 2) return "¡Gran esfuerzo! Mantente en el Top 3.";
+      if (index === totalKams - 1 && valor === 0) return "¡Es tu momento de brillar, no te rindas!";
+      if (index === totalKams - 1 && valor > 0) return "Sigue empujando, ¡cada venta cuenta!";
+      return "";
+    };
+
     container.innerHTML = kamData.map((d, i) => {
       const rankClass = medals[i] || '';
       const isMe = d.kam.toUpperCase() === kamActual.toUpperCase();
       const barPct = safe((d.valor / maxValor) * 100);
+      const motivation = getMotivation(i, kamData.length, d.valor);
+      
       return `
         <div class="kam-rank-item ${isMe ? 'me' : ''}">
           <div class="rank-num ${rankClass}">${i + 1}</div>
@@ -767,6 +858,7 @@
             <div class="rank-bar-bg">
               <div class="rank-bar-fill" style="width:${barPct}%"></div>
             </div>
+            ${motivation ? `<div style="font-size: 11px; color: var(--text2); margin-top: 4px; font-style: italic;">${motivation}</div>` : ''}
           </div>
           <div class="rank-value">${fmt(d.valor)}</div>
         </div>`;
@@ -808,10 +900,10 @@
       return { ...m, stage, lastSeg: last };
     });
 
-    // Límite: mostrar máx 8 cards por columna para no saturar
+    // Límite inicial 8 cards, pero renderizamos todas y ocultamos el resto
     board.innerHTML = KANBAN_STAGES.map(col => {
-      const cards = medWithStage.filter(m => m.stage === col.id).slice(0, 8);
-      const total = medWithStage.filter(m => m.stage === col.id).length;
+      const allCards = medWithStage.filter(m => m.stage === col.id);
+      const total = allCards.length;
       const nombre_field = m => m['Nombre'] || m.nombre || m.name || '—';
       const hospital_field = m => m['Hospital'] || m.hospital || '';
       const esp_field = m => (m['Especialidad'] || m.especialidad || '').split(' ')[0] || '';
@@ -828,9 +920,10 @@
                ondragover="event.preventDefault();this.classList.add('drag-over')"
                ondragleave="this.classList.remove('drag-over')"
                ondrop="window.onKanbanDrop(event,this)">
-            ${cards.map(m => `
-              <div class="kanban-card" draggable="true" data-id="${m.id || ''}" data-nombre="${nombre_field(m)}"
-                   ondragstart="window.onKanbanDragStart(event,this)">
+            ${allCards.map((m, index) => `
+              <div class="kanban-card hidden-kcard" draggable="true" data-id="${m.id || ''}" data-nombre="${nombre_field(m)}"
+                   ondragstart="window.onKanbanDragStart(event,this)"
+                   style="${index >= 8 ? 'display:none;' : ''}">
                 <div class="kanban-card-name">${nombre_field(m)}</div>
                 <div class="kanban-card-meta">
                   ${hospital_field(m) ? `<span>🏥 ${hospital_field(m)}</span>` : ''}
@@ -843,10 +936,20 @@
                 </div>
               </div>
             `).join('')}
-            ${total > 8 ? `<div class="text-xs text-dim" style="padding:8px;text-align:center">+${total - 8} más…</div>` : ''}
+            ${total > 8 ? `<button class="btn btn-ghost w-100 text-xs text-dim" style="padding:8px;text-align:center;width:100%;background:rgba(255,255,255,0.05);border-radius:4px;margin-top:8px;" onclick="window.expandKanban(this)">+${total - 8} más…</button>` : ''}
           </div>
         </div>`;
     }).join('');
+  };
+
+  // Función para expandir cards ocultas
+  window.expandKanban = function(btn) {
+    const parent = btn.parentElement;
+    const hiddenCards = parent.querySelectorAll('.hidden-kcard[style*="display:none"]');
+    hiddenCards.forEach(c => {
+      c.style.display = ''; // Elimina el display:none inline para que tome el del CSS
+    });
+    btn.style.display = 'none'; // Ocultar el botón
   };
 
   /* ── Drag & Drop Kanban ────────────────────────────────────────── */
