@@ -185,8 +185,24 @@
     const nomadCots = window.NOMAD_COTS || [];
     const segs = window.__hist_cache__ || [];
 
-    // Función de normalización auxiliar
-    const norm = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
+    // Función de normalización auxiliar con aliases locales (fallback si normalizeKAM aún no está lista)
+    const KAM_ALIASES = {
+      'ANAYELY': 'ANAYELY TAPIA', 'ANAYELI': 'ANAYELY TAPIA',
+      'BERENICE': 'BERENICE ORDAZ',
+      'DAYAN': 'DAYANA',
+      'OSCAR': 'OSCAR RANGEL',
+      'MARYMAR': 'MARYMAR',
+      'MARICARMEN': 'MARICARMEN CASTILLO',
+      'ALAIN': 'DR. ALAIN RAMÍREZ',
+    };
+    const norm = (k) => {
+      if (window.normalizeKAM) return window.normalizeKAM(k);
+      const upper = (k || '').replace(/\s+/g, ' ').trim().toUpperCase();
+      for (const [alias, full] of Object.entries(KAM_ALIASES)) {
+        if (upper.includes(alias)) return full;
+      }
+      return upper;
+    };
 
     // Normalizar también el nombre canónico del KAM de la tarjeta (por si viene sin alias)
     const kamCanon = norm(kamNorm);
