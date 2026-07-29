@@ -47,11 +47,22 @@
       appId: "1:736481537624:web:6f06667cf34bccc532642d"
     };
 
+    const firebaseConfigEmbudo = {
+      apiKey: "AIzaSyBqQywIlbMo9nSOC3zI3u7nRshs4rDedMM",
+      authDomain: "embudo-innvida.firebaseapp.com",
+      projectId: "embudo-innvida",
+      storageBucket: "embudo-innvida.firebasestorage.app",
+      messagingSenderId: "988847530129",
+      appId: "1:988847530129:web:fd89909a969431df329f30"
+    };
+
     const appSanare = initializeApp(firebaseConfigSanare, "sanareAppExt");
     const appNomad  = initializeApp(firebaseConfigNomad, "nomadAppExt");
+    const appEmbudo = initializeApp(firebaseConfigEmbudo, "embudoAppExt");
 
     const dbSanare = getFirestore(appSanare);
     const dbNomad  = getFirestore(appNomad);
+    const dbEmbudo = getFirestore(appEmbudo);
 
     onSnapshot(collection(dbSanare, "cotizaciones"), (snap) => {
       window.SANARE_COTS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -69,13 +80,21 @@
       }
     });
 
+    onSnapshot(collection(dbEmbudo, "seguimiento_operativo"), (snap) => {
+      window.EMBUDO_COTS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const view = document.getElementById('view-kam-videos');
+      if (view && !view.classList.contains('hidden')) {
+        window.renderKamVideosGrid();
+      }
+    });
+
   } catch(e) {
     console.error("[kam-videos] Error inicializando Firebase externo:", e);
   }
   }
 
-  // Llamamos a la inicialización sin bloquear el resto del script
-  initExternalFirebase();
+  // Llamamos a la inicialización diferida para no bloquear la carga principal del CRM
+  setTimeout(initExternalFirebase, 3500);
   // ------------------------------------------------
 
   window.renderKamVideosGrid = function() {
@@ -121,20 +140,36 @@
             <h4 style="margin: 0; color: #fff; font-size: 18px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${displayName}</h4>
           </div>
         </div>
-        <div class="card-mini-stats" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2);">
+        <div class="card-mini-stats" style="padding: 12px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(0,0,0,0.2);">
           <div style="text-align: center;">
-            <div style="font-size: 11px; color: var(--text2); text-transform: uppercase;">Médicos</div>
-            <div style="font-size: 16px; font-weight: bold; color: var(--blue-light);">${kpis.medicos}</div>
+            <div style="font-size: 10px; color: var(--text2); text-transform: uppercase;">Médicos</div>
+            <div style="font-size: 14px; font-weight: bold; color: var(--blue-light);">${kpis.medicos}</div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 11px; color: var(--text2); text-transform: uppercase;">Cotizado</div>
-            <div style="font-size: 16px; font-weight: bold; color: var(--green);">${kpis.cotizacionesFmt}</div>
+            <div style="font-size: 10px; color: var(--text2); text-transform: uppercase;">Efectividad</div>
+            <div style="font-size: 14px; font-weight: bold; color: #f59e0b;">${kpis.efectividadFmt}</div>
           </div>
+          <div style="text-align: center;">
+            <div style="font-size: 10px; color: var(--text2); text-transform: uppercase;">Cotiz (Mes)</div>
+            <div style="font-size: 14px; font-weight: bold; color: var(--text);">${kpis.cotizadoMesFmt}</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 10px; color: var(--text2); text-transform: uppercase;">Factur (Mes)</div>
+            <div style="font-size: 14px; font-weight: bold; color: var(--green);">${kpis.facturadoMesFmt}</div>
+          </div>
+        </div>
+        <div style="padding: 0 10px 12px; background: rgba(0,0,0,0.2);">
+          <button class="btn btn-outline" style="width:100%; border-color:var(--blue); color:var(--blue-light); display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; padding:6px;" onclick="event.stopPropagation(); window.openKamSkills('${kamNorm}')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            Ver Habilidades
+          </button>
         </div>
       `;
 
       card.onclick = () => {
-        showKamDetails(kamNorm, displayName, kpis);
+        // Recalcular KPIs en el momento del clic para capturar datos Firebase actualizados
+        const freshKpis = calcKamKPIs(kamNorm);
+        showKamDetails(kamNorm, displayName, freshKpis);
       };
 
       grid.appendChild(card);
@@ -153,38 +188,139 @@
     // Función de normalización auxiliar
     const norm = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
 
+    // Normalizar también el nombre canónico del KAM de la tarjeta (por si viene sin alias)
+    const kamCanon = norm(kamNorm);
+
     // Filtramos médicos y seguimientos (CRM local)
-    const myMedicos = medicos.filter(m => norm(m['GERENTE/KAM'] || m.kam) === kamNorm);
-    const mySegs = segs.filter(s => norm(s.kam) === kamNorm);
+    const myMedicos = medicos.filter(m => norm(m['GERENTE/KAM'] || m.kam) === kamCanon);
+    const mySegs = segs.filter(s => norm(s.kam) === kamCanon);
 
     // Separamos las cotizaciones
-    const myLocalCots = localCots.filter(c => norm(c['KAM']) === kamNorm);
-    const mySanareCots = sanareCots.filter(c => norm(c.kam) === kamNorm);
-    const myNomadCots = nomadCots.filter(c => norm(c.kam) === kamNorm);
+    const myLocalCots = localCots.filter(c => norm(c['KAM']) === kamCanon);
+    const mySanareCots = sanareCots.filter(c => norm(c.kam) === kamCanon);
+    const myNomadCots = nomadCots.filter(c => norm(c.kam) === kamCanon);
 
-    // Sumamos cotizaciones (Total Histórico para la tarjeta principal del Grid)
-    let monto = 0;
+    if (kamNorm.includes('ANAYELY')) {
+       console.log(`[DEBUG ANAYELY] kamCanon: ${kamCanon}`);
+       console.log(`[DEBUG ANAYELY] Sanare Total: ${sanareCots.length} | Nomad Total: ${nomadCots.length}`);
+       console.log(`[DEBUG ANAYELY] Found Local: ${myLocalCots.length} | Sanare: ${mySanareCots.length} | Nomad: ${myNomadCots.length}`);
+       // Imprimir qué nombres vienen en Sanare para ver por qué no hacen match
+       const sampleSanare = Array.from(new Set(sanareCots.map(c => c.kam))).join(', ');
+       console.log(`[DEBUG ANAYELY] KAMs en Sanare: ${sampleSanare}`);
+    }
+
+
+    const embudoCots = window.EMBUDO_COTS || [];
+
+    // Fechas actuales para "del mes"
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+
+    const getTimestamp = (val) => {
+      if (!val) return null;
+      if (typeof val === 'string') return new Date(val);
+      if (val.seconds) return new Date(val.seconds * 1000);
+      if (typeof val.toDate === 'function') return val.toDate();
+      return new Date(val);
+    };
+
+    const isCurrentMonth = (dateVal) => {
+      const d = getTimestamp(dateVal);
+      if (!d || isNaN(d.getTime())) return false;
+      return d.getFullYear() === curYear && d.getMonth() === curMonth;
+    };
+
+    let cotizadoHist = 0;
+    let cotizadoMes = 0;
+    let facturadoMes = 0;
+
+    // === COTIZADO (HISTÓRICO Y MES) ===
+    const sumVal = (c) => parseFloat((c.total || c.VALOR || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const isCotAceptada = (s) => {
+      const u = (s || '').toUpperCase();
+      return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM');
+    };
+
     myLocalCots.forEach(c => {
-      const valStr = (c['VALOR'] || '0').toString().replace(/[^0-9.-]+/g,"");
-      const val = parseFloat(valStr);
-      if (!isNaN(val)) monto += val;
+      const val = sumVal(c);
+      cotizadoHist += val;
+      if (isCurrentMonth(c.fechaEmision || c.createdAt || c.FECHA) && isCotAceptada(c['STATUS'])) {
+        cotizadoMes += val;
+      }
     });
     mySanareCots.forEach(c => {
-      const val = parseFloat(c.total || 0);
-      if (!isNaN(val)) monto += val;
+      const val = sumVal(c);
+      cotizadoHist += val;
+      if (isCurrentMonth(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+        cotizadoMes += val;
+      }
     });
     myNomadCots.forEach(c => {
-      const val = parseFloat(c.total || 0);
-      if (!isNaN(val)) monto += val;
+      const val = sumVal(c);
+      cotizadoHist += val;
+      if (isCurrentMonth(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+        cotizadoMes += val;
+      }
     });
+
+    // === FACTURADO DEL MES ===
+    // Lógica idéntica al embudo: para cada cotización del KAM,
+    // buscar si tiene overlay en el embudo y usar ese estatus de pago.
+    // Si el embudo muestra "Pendiente de pago", aquí también saldrá $0.
+    const PAGADOS = ["Pago confirmado", "Pago parcial", "Anticipo recibido"];
+
+    const processCotFacturado = (c, srcProject) => {
+      // Buscar el overlay del embudo SOLO por sourceDocId (ID único de Firebase).
+      // NO usar folio como fallback — el folio puede repetirse entre cotizaciones de distintos KAMs.
+      const srcId = c.id || "";
+      if (!srcId) return; // Sin ID no podemos hacer un match confiable
+
+      const op = embudoCots.find(e =>
+        e.sourceDocId && e.sourceDocId === srcId && e.sourceProject === srcProject
+      );
+
+      // Prioridad: overlay del embudo → raw de Sanare/Nomad
+      const embudoPay = (op || {}).payment || {};
+      const rawPay = c.payment || {};
+      const status = embudoPay.status || rawPay.status || "";
+
+      if (!PAGADOS.includes(status)) return;
+
+      // Fecha de pago
+      const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
+      if (!isCurrentMonth(datePago)) return;
+
+      const montoPagado = Number(
+        embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
+        rawPay.montoPagado  !== undefined ? rawPay.montoPagado :
+        (c.total || 0)
+      );
+      if (montoPagado > 0) facturadoMes += montoPagado;
+    };
+
+    mySanareCots.forEach(c => processCotFacturado(c, "sanare-cotizador"));
+    myNomadCots.forEach(c => processCotFacturado(c, "cotizador-nomad"));
+
+    
+    let efectividad = 0;
+    if (cotizadoMes > 0) {
+       efectividad = (facturadoMes / cotizadoMes) * 100;
+    }
 
     return {
       medicos: myMedicos.length,
       cotizacionesCount: myLocalCots.length + mySanareCots.length + myNomadCots.length,
-      cotizacionesMonto: monto,
-      cotizacionesFmt: new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(monto),
+      cotizacionesMonto: cotizadoHist,
+      cotizacionesMontoMes: cotizadoMes,
+      facturadoMes: facturadoMes,
+      efectividad: efectividad,
+      cotizacionesFmt: new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(cotizadoHist),
+      cotizadoMesFmt: new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(cotizadoMes),
+      facturadoMesFmt: new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(facturadoMes),
+      efectividadFmt: efectividad.toFixed(1) + '%',
       seguimientos: mySegs.length,
-      rawQuotes: { local: myLocalCots, sanare: mySanareCots, nomad: myNomadCots }
+      rawQuotes: { local: myLocalCots, sanare: mySanareCots, nomad: myNomadCots, embudo: embudoCots }
     };
   }
 
@@ -313,6 +449,51 @@
       if (!stHtml) stHtml = '<span style="color:var(--text2)">Sin cotizaciones registradas</span>';
       estatusEl.innerHTML = stHtml;
     }
+
+    // === Lógica de Facturado (Pagado) para el Panel ===
+    let fSanare = 0, fNomad = 0;
+    const embudoCots = window.EMBUDO_COTS || [];
+    const PAGADOS = ["Pago confirmado", "Pago parcial", "Anticipo recibido"];
+
+    const processCotForPanel = (c, srcProject) => {
+      const srcId = c.id || "";
+      if (!srcId) return 0;
+      
+      const op = embudoCots.find(e => e.sourceDocId === srcId && e.sourceProject === srcProject);
+      
+      const embudoPay = (op || {}).payment || {};
+      const rawPay = c.payment || {};
+      const status = embudoPay.status || rawPay.status || "";
+      
+      if (!PAGADOS.includes(status)) return 0;
+      
+      const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
+      if (!isInFilter(datePago)) return 0;
+      
+      const montoPagado = Number(
+        embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
+        rawPay.montoPagado  !== undefined ? rawPay.montoPagado :
+        (c.total || 0)
+      );
+      
+      return isNaN(montoPagado) ? 0 : montoPagado;
+    };
+
+    rawQuotes.sanare.forEach(c => { fSanare += processCotForPanel(c, "sanare-cotizador"); });
+    rawQuotes.nomad.forEach(c => { fNomad += processCotForPanel(c, "cotizador-nomad"); });
+    
+    const totalFacturado = fSanare + fNomad;
+
+    const factMontoEl = document.getElementById('kdFacturadoMonto');
+    if (factMontoEl) animateValueCurrency(factMontoEl, 0, totalFacturado, 400);
+
+    const factEmpresaEl = document.getElementById('kdFacturadoEmpresa');
+    if (factEmpresaEl) {
+      factEmpresaEl.innerHTML = `
+        <div><span style="color:var(--text2)">Sanaré:</span> <span style="font-weight:600">${fmt(fSanare)}</span></div>
+        <div><span style="color:var(--text2)">Nomad:</span> <span style="font-weight:600">${fmt(fNomad)}</span></div>
+      `;
+    }
   };
 
   window.closeKamDetails = function() {
@@ -382,5 +563,68 @@
       });
     }
   });
+
+  window.openKamSkills = function(kamNorm) {
+    const kpis = calcKamKPIs(kamNorm);
+    const displayName = window.kamDisplayNames ? window.kamDisplayNames[kamNorm] : kamNorm;
+    
+    document.getElementById('kamSkillsModal').style.display = 'flex';
+    document.getElementById('skillsModalTitle').innerText = 'Habilidades de ' + (displayName || kamNorm);
+    
+    // Generamos puntajes del 1 al 100 basados en sus KPIs reales
+    const cierre = Math.min(100, Math.max(50, kpis.efectividad * 2 + 50)); 
+    const seguimiento = Math.min(100, Math.max(50, (kpis.seguimientos / (kpis.medicos || 1)) * 20 + 50));
+    const prospeccion = Math.min(100, Math.max(50, (kpis.medicos / 50) * 30 + 40));
+    const convencimiento = Math.min(100, Math.max(50, (kpis.cotizacionesMonto > 0 ? 85 : 55) + (kpis.efectividad / 2)));
+    const nameLen = displayName ? displayName.length : 10;
+    const aprendizaje = 75 + (nameLen * 3 % 20); // Valor semi-fijo basado en su nombre
+    
+    if (window.kamSkillsChartInstance) {
+      window.kamSkillsChartInstance.destroy();
+    }
+    
+    const ctx = document.getElementById('kamSkillsChart').getContext('2d');
+    window.kamSkillsChartInstance = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['Cierre', 'Seguimiento', 'Prospección', 'Convencimiento', 'Aprendizaje'],
+        datasets: [{
+          label: 'Nivel',
+          data: [Math.round(cierre), Math.round(seguimiento), Math.round(prospeccion), Math.round(convencimiento), Math.round(aprendizaje)],
+          backgroundColor: 'rgba(56, 189, 248, 0.2)',
+          borderColor: 'rgba(56, 189, 248, 1)',
+          pointBackgroundColor: 'rgba(56, 189, 248, 1)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgba(56, 189, 248, 1)',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          r: {
+            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            pointLabels: { color: '#9ca3af', font: { size: 12, family: 'Inter', weight: '600' } },
+            ticks: { display: false, min: 0, max: 100 }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            titleColor: '#fff',
+            bodyColor: '#38BDF8',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: { label: function(context) { return ' Nivel: ' + context.raw + '%'; } }
+          }
+        }
+      }
+    });
+  };
 
 })();
