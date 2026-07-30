@@ -5,6 +5,7 @@
     'MARICARMEN CASTILLO': 'maricarmen.mp4',
     'ANAYELY TAPIA': 'anayely.mp4',
     'BERENICE ORDAZ': 'berenice.mp4',
+    'DAVID SANTIAGO': 'david.mp4',
     'DAYANA': 'dayana.mp4',
     'OSCAR RANGEL': 'oscar.mp4',
     'MARYMAR': 'marymar.mp4'
@@ -15,6 +16,7 @@
     'MARICARMEN CASTILLO': 'Maricarmen Castillo',
     'ANAYELY TAPIA': 'Anayely Tapia',
     'BERENICE ORDAZ': 'Berenice Ordaz',
+    'DAVID SANTIAGO': 'David Santiago',
     'DAYANA': 'Dayana',
     'OSCAR RANGEL': 'Oscar Rangel',
     'MARYMAR': 'Marymar'
@@ -189,6 +191,7 @@
     const KAM_ALIASES = {
       'ANAYELY': 'ANAYELY TAPIA', 'ANAYELI': 'ANAYELY TAPIA',
       'BERENICE': 'BERENICE ORDAZ',
+      'DAVID': 'DAVID SANTIAGO',
       'DAYAN': 'DAYANA',
       'OSCAR': 'OSCAR RANGEL',
       'MARYMAR': 'MARYMAR',
