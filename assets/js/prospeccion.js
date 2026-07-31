@@ -1,8 +1,8 @@
 // prospeccion.js - Módulo de Prospección Comercial con IA
 
 (function() {
-  const GROQ_KEY = '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'; // Reusando la key de ia-assistant
-  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  // La API key ya NO está aquí. Se lee desde Vercel Environment Variables a través del proxy seguro
+  const GROQ_URL = '/api/groq';
   
   let currentProspectMed = null;
   let currentProspectData = [];
@@ -160,8 +160,8 @@ REGLAS PARA EL MENSAJE:
       const res = await fetch(GROQ_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_KEY}`
+          'Content-Type': 'application/json'
+          // Authorization la maneja el proxy en /api/groq
         },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
