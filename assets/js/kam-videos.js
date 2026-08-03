@@ -477,7 +477,15 @@
     const estatusEl = document.getElementById('kdCotsEstatus');
     if (estatusEl) {
       let stHtml = '';
-      const sortedStatus = Object.keys(statusMap).sort((a,b) => statusMap[b] - statusMap[a]);
+      const isAceptada = (s) => {
+        const u = (s || '').toUpperCase();
+        return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM');
+      };
+
+      const sortedStatus = Object.keys(statusMap)
+        .filter(st => st === 'SIN ESTATUS' || isAceptada(st))
+        .sort((a,b) => statusMap[b] - statusMap[a]);
+        
       sortedStatus.forEach(st => {
         stHtml += `<div style="display:flex; justify-content:space-between;">
           <span style="color:var(--text2)">${st}</span>
