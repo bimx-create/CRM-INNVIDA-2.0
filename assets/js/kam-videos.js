@@ -2,22 +2,24 @@
 (function() {
   const KAM_VIDEOS = {
     'DR. ALAIN RAMÍREZ': 'alain.mp4',
-    'MARICARMEN CASTILLO': 'maricarmen.mp4',
+    'CLAUDIA': 'claudia.mp4',
     'ANAYELY TAPIA': 'anayely.mp4',
     'BERENICE ORDAZ': 'berenice.mp4',
     'DAYANA': 'dayana.mp4',
     'OSCAR RANGEL': 'oscar.mp4',
-    'MARYMAR': 'marymar.mp4'
+    'MARYMAR': 'marymar.mp4',
+    'DAVID SANTIAGO': 'david.mp4'
   };
 
   const KAM_DISPLAY_NAMES = {
     'DR. ALAIN RAMÍREZ': 'Dr. Alain Ramírez',
-    'MARICARMEN CASTILLO': 'Maricarmen Castillo',
+    'CLAUDIA': 'Claudia',
     'ANAYELY TAPIA': 'Anayely Tapia',
     'BERENICE ORDAZ': 'Berenice Ordaz',
     'DAYANA': 'Dayana',
     'OSCAR RANGEL': 'Oscar Rangel',
-    'MARYMAR': 'Marymar'
+    'MARYMAR': 'Marymar',
+    'DAVID SANTIAGO': 'David Santiago'
   };
 
   // ----- INTEGRACIÓN FIREBASE SANARÉ & NOMAD -----
@@ -192,7 +194,8 @@
       'DAYAN': 'DAYANA',
       'OSCAR': 'OSCAR RANGEL',
       'MARYMAR': 'MARYMAR',
-      'MARICARMEN': 'MARICARMEN CASTILLO',
+      'CLAUDIA': 'CLAUDIA',
+      'DAVID': 'DAVID SANTIAGO',
       'ALAIN': 'DR. ALAIN RAMÍREZ',
     };
     const norm = (k) => {

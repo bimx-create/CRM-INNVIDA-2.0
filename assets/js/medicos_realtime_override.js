@@ -40,7 +40,8 @@
         if (lower.includes('alexis')) return 'ALEXIS';
         if (lower.includes('leonel')) return 'LEONEL CASTILLEJOS';
         if (lower.includes('manuel')) return 'MANUEL AGUIRRE';
-        if (lower.includes('maricarmen')) return 'MARICARMEN CASTILLO';
+        if (lower.includes('claudia')) return 'CLAUDIA';
+        if (lower.includes('david')) return 'DAVID SANTIAGO';
         if (lower.includes('oscar')) return 'OSCAR RANGEL';
         if (lower.includes('marymar')) return 'MARYMAR';
         if (lower.includes('efrain') || lower.includes('efraín')) return 'EFRAIN';
