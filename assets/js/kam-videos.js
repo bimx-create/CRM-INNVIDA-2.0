@@ -5,7 +5,6 @@
     'MARICARMEN CASTILLO': 'maricarmen.mp4',
     'ANAYELY TAPIA': 'anayely.mp4',
     'BERENICE ORDAZ': 'berenice.mp4',
-    'DAVID SANTIAGO': 'david.mp4',
     'DAYANA': 'dayana.mp4',
     'OSCAR RANGEL': 'oscar.mp4',
     'MARYMAR': 'marymar.mp4'
@@ -16,7 +15,6 @@
     'MARICARMEN CASTILLO': 'Maricarmen Castillo',
     'ANAYELY TAPIA': 'Anayely Tapia',
     'BERENICE ORDAZ': 'Berenice Ordaz',
-    'DAVID SANTIAGO': 'David Santiago',
     'DAYANA': 'Dayana',
     'OSCAR RANGEL': 'Oscar Rangel',
     'MARYMAR': 'Marymar'
@@ -191,7 +189,6 @@
     const KAM_ALIASES = {
       'ANAYELY': 'ANAYELY TAPIA', 'ANAYELI': 'ANAYELY TAPIA',
       'BERENICE': 'BERENICE ORDAZ',
-      'DAVID': 'DAVID SANTIAGO',
       'DAYAN': 'DAYANA',
       'OSCAR': 'OSCAR RANGEL',
       'MARYMAR': 'MARYMAR',
@@ -223,9 +220,14 @@
        console.log(`[DEBUG ANAYELY] kamCanon: ${kamCanon}`);
        console.log(`[DEBUG ANAYELY] Sanare Total: ${sanareCots.length} | Nomad Total: ${nomadCots.length}`);
        console.log(`[DEBUG ANAYELY] Found Local: ${myLocalCots.length} | Sanare: ${mySanareCots.length} | Nomad: ${myNomadCots.length}`);
-       // Imprimir qué nombres vienen en Sanare para ver por qué no hacen match
-       const sampleSanare = Array.from(new Set(sanareCots.map(c => c.kam))).join(', ');
-       console.log(`[DEBUG ANAYELY] KAMs en Sanare: ${sampleSanare}`);
+       // Debug profundo: mostrar entradas donde c.kam incluye 'anay' y su norm()
+       const directMatch = sanareCots.filter(c => (c.kam||'').toLowerCase().includes('anay') || (c.KAM||'').toLowerCase().includes('anay') || (c.vendedor||'').toLowerCase().includes('anay') || (c.asesor||'').toLowerCase().includes('anay'));
+       console.log(`[DEBUG ANAYELY] Direct 'anay' matches in Sanare:`, directMatch.length, directMatch.slice(0,3).map(c => ({ kam: c.kam, KAM: c.KAM, vendedor: c.vendedor, asesor: c.asesor, norm: norm(c.kam) })));
+       const sampleSanare = Array.from(new Set(sanareCots.map(c => c.kam))).slice(0,20).join(', ');
+       console.log(`[DEBUG ANAYELY] Sample KAMs en Sanare (c.kam):`, sampleSanare);
+       // Ver si existe bajo otro campo
+       const allKeys = sanareCots.length > 0 ? Object.keys(sanareCots[0]) : [];
+       console.log(`[DEBUG ANAYELY] Campos de cotizacion Sanare:`, allKeys);
     }
 
 
@@ -235,6 +237,9 @@
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = now.getMonth();
+    
+    const globalFilterEl = document.getElementById('globalKamMonthFilter');
+    const globalFilterVal = globalFilterEl ? globalFilterEl.value : 'current';
 
     const getTimestamp = (val) => {
       if (!val) return null;
@@ -244,10 +249,21 @@
       return new Date(val);
     };
 
-    const isCurrentMonth = (dateVal) => {
+    const isInGlobalFilter = (dateVal) => {
       const d = getTimestamp(dateVal);
       if (!d || isNaN(d.getTime())) return false;
-      return d.getFullYear() === curYear && d.getMonth() === curMonth;
+      
+      if (globalFilterVal === 'all') return true;
+      
+      if (globalFilterVal === 'current') {
+        return d.getFullYear() === curYear && d.getMonth() === curMonth;
+      } else if (globalFilterVal === 'last') {
+        let lastMonth = curMonth - 1;
+        let lastYear = curYear;
+        if (lastMonth < 0) { lastMonth = 11; lastYear--; }
+        return d.getFullYear() === lastYear && d.getMonth() === lastMonth;
+      }
+      return true;
     };
 
     let cotizadoHist = 0;
@@ -264,21 +280,21 @@
     myLocalCots.forEach(c => {
       const val = sumVal(c);
       cotizadoHist += val;
-      if (isCurrentMonth(c.fechaEmision || c.createdAt || c.FECHA) && isCotAceptada(c['STATUS'])) {
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt || c.FECHA) && isCotAceptada(c['STATUS'])) {
         cotizadoMes += val;
       }
     });
     mySanareCots.forEach(c => {
       const val = sumVal(c);
       cotizadoHist += val;
-      if (isCurrentMonth(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
         cotizadoMes += val;
       }
     });
     myNomadCots.forEach(c => {
       const val = sumVal(c);
       cotizadoHist += val;
-      if (isCurrentMonth(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
         cotizadoMes += val;
       }
     });
@@ -308,7 +324,7 @@
 
       // Fecha de pago
       const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
-      if (!isCurrentMonth(datePago)) return;
+      if (!isInGlobalFilter(datePago)) return;
 
       const montoPagado = Number(
         embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
