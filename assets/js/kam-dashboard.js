@@ -32,6 +32,10 @@
     'ANAYELI':          'ANAYELY TAPIA',
     'ANAYELI TAPIA':    'ANAYELY TAPIA',
     'ANAYELY':          'ANAYELY TAPIA',
+    'MARICARMEN':       'CLAUDIA',
+    'MARICARMEN CASTILLO': 'CLAUDIA',
+    'MARICARMEN CASTILLO PEREZ': 'CLAUDIA',
+    'DAVID':            'DAVID SANTIAGO'
     // Agrega más alias aquí si hay otros nombres mal capturados, ej:
     // 'BERENICE': 'BERENICE ORDAZ',
   };
@@ -48,12 +52,12 @@
   window.getKAMs = function () {
     const medicos = window.MED_BASE || [];
     const cots    = window.COT_BASE || [];
-    const set = new Set();
+    const set = new Set(['ANAYELY TAPIA', 'BERENICE ORDAZ', 'DAYANA', 'DR. ALAIN RAMÍREZ', 'OSCAR RANGEL', 'CLAUDIA', 'DAVID SANTIAGO']);
     const norm = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
     medicos.forEach(m => { const k = norm(m['GERENTE/KAM'] || m.kam || ''); if (k) set.add(k); });
     cots.forEach(c    => { const k = norm(c['KAM'] || ''); if (k) set.add(k); });
     return Array.from(set)
-      .filter(k => !HIDDEN_KAMS.has(k.toUpperCase()))
+      .filter(k => !HIDDEN_KAMS.has(k.toUpperCase()) && !k.includes('MARICARMEN'))
       .sort((a, b) => a.localeCompare(b, 'es'));
   };
 
