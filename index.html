@@ -479,7 +479,12 @@
             <h2 class="section-title">Desempeño por KAM</h2>
             <p class="section-sub">Selecciona un KAM para ver su avance en CRM y Cotizaciones</p>
           </div>
-          <div class="actions">
+          <div class="actions" style="display: flex; gap: 12px; align-items: center;">
+            <select id="globalKamMonthFilter" class="filter-select" style="padding: 6px 12px; border-radius: 6px; background: var(--bg2); color: var(--text1); border: 1px solid var(--border2);" onchange="if(window.renderKamVideosGrid) window.renderKamVideosGrid()">
+              <option value="current">Este mes</option>
+              <option value="last">Mes anterior</option>
+              <option value="all">Todo (Histórico)</option>
+            </select>
             <button class="btn btn-ghost" onclick="renderKamVideosGrid()">↻ Refrescar</button>
           </div>
         </div>
@@ -1084,7 +1089,7 @@
   <script src="assets/js/followup_simple.js?v=57"></script>
   <script src="assets/js/medico-registro.js?v=57"></script>
   <script src="assets/js/ia-assistant.js?v=66"></script>
-  <script src="assets/js/kam-videos.js?v=63"></script>
+  <script src="assets/js/kam-videos.js?v=67"></script>
   <script src="assets/js/pubmed-api.js?v=58"></script>
   <script src="assets/js/prospeccion.js?v=66"></script>
   <script src="assets/js/kam-report-ia.js?v=65"></script>
