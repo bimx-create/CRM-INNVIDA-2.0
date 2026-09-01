@@ -21,7 +21,8 @@
   const HIDDEN_KAMS = new Set([
     'ALEXIS', 'AMÉRICA GÓMEZ', 'AMERICA GOMEZ', 'EFRAIN',
     'JOAN SERRANO', 'KAM@EMPRESA.COM', 'LEONEL CASTILLEJOS',
-    'MANUEL AGUIRRE', 'MONICA', 'MÓNICA', 'RAYMUNDO ACUÑA'
+    'MANUEL AGUIRRE', 'MONICA', 'MÓNICA', 'RAYMUNDO ACUÑA',
+    'BERENICE ORDAZ', 'DAYANA'
   ]);
 
   /* ── Mapa de aliases: variantes → nombre canónico ────────────────
@@ -35,7 +36,10 @@
     'MARICARMEN':       'CLAUDIA',
     'MARICARMEN CASTILLO': 'CLAUDIA',
     'MARICARMEN CASTILLO PEREZ': 'CLAUDIA',
-    'DAVID':            'DAVID SANTIAGO'
+    'DAVID':            'DAVID SANTIAGO',
+    'LISETTE':          'LIZETTE',
+    'LIZETH':           'LIZETTE',
+    'LISETH':           'LIZETTE'
     // Agrega más alias aquí si hay otros nombres mal capturados, ej:
     // 'BERENICE': 'BERENICE ORDAZ',
   };
@@ -52,7 +56,7 @@
   window.getKAMs = function () {
     const medicos = window.MED_BASE || [];
     const cots    = window.COT_BASE || [];
-    const set = new Set(['ANAYELY TAPIA', 'BERENICE ORDAZ', 'DAYANA', 'DR. ALAIN RAMÍREZ', 'OSCAR RANGEL', 'CLAUDIA', 'DAVID SANTIAGO']);
+    const set = new Set(['ANAYELY TAPIA', 'CLAUDIA', 'DAVID SANTIAGO', 'DR. ALAIN RAMÍREZ', 'OSCAR RANGEL', 'LIZETTE']);
     const norm = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
     medicos.forEach(m => { const k = norm(m['GERENTE/KAM'] || m.kam || ''); if (k) set.add(k); });
     cots.forEach(c    => { const k = norm(c['KAM'] || ''); if (k) set.add(k); });
@@ -808,29 +812,27 @@
       
       let facturado = 0;
 
-      const processCotForRanking = (c, srcProject) => {
-        const srcId = c.id || "";
-        if (!srcId) return;
-        const op = embudoCots.find(e => e.sourceDocId === srcId && e.sourceProject === srcProject);
-        const embudoPay = (op || {}).payment || {};
-        const rawPay = c.payment || {};
-        const status = embudoPay.status || rawPay.status || "";
-        if (!PAGADOS.includes(status)) return;
-        
-        // Verificar filtro de tiempo en la FECHA DE PAGO
-        const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
-        if (!isDateInTimeFilter(datePago)) return;
+      // 1. Nomad = cotizaciones Cerradas/Aceptadas en el periodo
+      const isCerrada = (s) => { const u = (s||'').toUpperCase(); return u.includes('CERRAD') || u.includes('ACEPT'); };
+      const parseMon = (v) => parseFloat((v||'0').toString().replace(/[^0-9.-]+/g,'')) || 0;
 
-        const montoPagado = Number(
-          embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
-          rawPay.montoPagado !== undefined ? rawPay.montoPagado :
-          (c.total || 0)
-        );
-        if (!isNaN(montoPagado) && montoPagado > 0) facturado += montoPagado;
-      };
+      nomadCots.forEach(c => {
+        if (isDateInTimeFilter(c.fechaEmision || c.createdAt) && isCerrada(c.status1 || c.status)) {
+          facturado += parseMon(c.total);
+        }
+      });
 
-      sanareCots.forEach(c => processCotForRanking(c, "sanare-cotizador"));
-      nomadCots.forEach(c => processCotForRanking(c, "cotizador-nomad"));
+      // 2. Sanare = SAI Supabase cruzando médico → KAM por medicos del KAM
+      const saiCotsR = window.SAI_COTS || [];
+      const kamMedicos = filterData(k, 'all').medicos || [];
+      saiCotsR.forEach(r => {
+        if (isDateInTimeFilter(r.fecha_infusion)) {
+          const nomR = (r.medicos || '').trim().toLowerCase();
+          if (!nomR) return;
+          const isMyDocR = kamMedicos.some(m => (m.Nombre || m.nombre || '').trim().toLowerCase() === nomR);
+          if (isMyDocR) facturado += (Number(r.monto_del_servicio) || 0);
+        }
+      });
 
       return { kam: k, valor: facturado };
     }).sort((a, b) => b.valor - a.valor);
@@ -1056,6 +1058,21 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => window.initDashboard && window.initDashboard(), 800);
+
+    // ── Cargar SAI (Supabase) para cálculo de facturación Sanare ──
+    if (!window.SAI_COTS) {
+      const SUPABASE_URL = "https://xchyapnrjsrdldmbndby.supabase.co/rest/v1/cotizaciones?select=*";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjaHlhcG5yanNyZGxkbWJuZGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MTQzMTEsImV4cCI6MjA5OTE5MDMxMX0.bQx88plhx5DVuPuH0ReJkGXhd9_7S4coaYdVszutmS4";
+      fetch(SUPABASE_URL, { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } })
+        .then(r => r.json())
+        .then(data => {
+          window.SAI_COTS = data || [];
+          // Refrescar dashboard con datos SAI
+          if (window.initDashboard) window.initDashboard();
+          if (window.renderKamRanking) window.renderKamRanking(window.__kamSelected || 'Todos', 'current');
+        })
+        .catch(e => console.error('[kam-dashboard] Error cargando SAI:', e));
+    }
 
     // Exportar Seguimientos a Excel
     const btnSeg = document.getElementById('downloadSegXLSX');

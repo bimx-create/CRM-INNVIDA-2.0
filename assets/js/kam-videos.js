@@ -4,22 +4,20 @@
     'DR. ALAIN RAMÍREZ': 'alain.mp4',
     'CLAUDIA': 'claudia.mp4',
     'ANAYELY TAPIA': 'anayely.mp4',
-    'BERENICE ORDAZ': 'berenice.mp4',
-    'DAYANA': 'dayana.mp4',
     'OSCAR RANGEL': 'oscar.mp4',
     'MARYMAR': 'marymar.mp4',
-    'DAVID SANTIAGO': 'david.mp4'
+    'DAVID SANTIAGO': 'david.mp4',
+    'LIZETTE': 'LY.mp4'
   };
 
   const KAM_DISPLAY_NAMES = {
     'DR. ALAIN RAMÍREZ': 'Dr. Alain Ramírez',
     'CLAUDIA': 'Claudia',
     'ANAYELY TAPIA': 'Anayely Tapia',
-    'BERENICE ORDAZ': 'Berenice Ordaz',
-    'DAYANA': 'Dayana',
     'OSCAR RANGEL': 'Oscar Rangel',
     'MARYMAR': 'Marymar',
-    'DAVID SANTIAGO': 'David Santiago'
+    'DAVID SANTIAGO': 'David Santiago',
+    'LIZETTE': 'Lizette Martinez'
   };
 
   // ----- INTEGRACIÓN FIREBASE SANARÉ & NOMAD -----
@@ -89,6 +87,22 @@
         window.renderKamVideosGrid();
       }
     });
+
+    // --- CARGAR DATOS DE SAI (SUPABASE) ---
+    const SUPABASE_URL = "https://xchyapnrjsrdldmbndby.supabase.co/rest/v1/cotizaciones?select=*";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjaHlhcG5yanNyZGxkbWJuZGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MTQzMTEsImV4cCI6MjA5OTE5MDMxMX0.bQx88plhx5DVuPuH0ReJkGXhd9_7S4coaYdVszutmS4";
+    fetch(SUPABASE_URL, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    }).then(r => r.json()).then(data => {
+      window.SAI_COTS = data || [];
+      const view = document.getElementById('view-kam-videos');
+      if (view && !view.classList.contains('hidden')) {
+        window.renderKamVideosGrid();
+      }
+    }).catch(e => console.error("Error cargando SAI Supabase:", e));
 
   } catch(e) {
     console.error("[kam-videos] Error inicializando Firebase externo:", e);
@@ -303,42 +317,26 @@
     });
 
     // === FACTURADO DEL MES ===
-    // Lógica idéntica al embudo: para cada cotización del KAM,
-    // buscar si tiene overlay en el embudo y usar ese estatus de pago.
-    // Si el embudo muestra "Pendiente de pago", aquí también saldrá $0.
-    const PAGADOS = ["Pago confirmado", "Pago parcial", "Anticipo recibido"];
+    // 1. Nomad = Cerradas/aceptadas de Nomad del mes
+    myNomadCots.forEach(c => {
+      const val = sumVal(c);
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+        facturadoMes += val;
+      }
+    });
 
-    const processCotFacturado = (c, srcProject) => {
-      // Buscar el overlay del embudo SOLO por sourceDocId (ID único de Firebase).
-      // NO usar folio como fallback — el folio puede repetirse entre cotizaciones de distintos KAMs.
-      const srcId = c.id || "";
-      if (!srcId) return; // Sin ID no podemos hacer un match confiable
-
-      const op = embudoCots.find(e =>
-        e.sourceDocId && e.sourceDocId === srcId && e.sourceProject === srcProject
-      );
-
-      // Prioridad: overlay del embudo → raw de Sanare/Nomad
-      const embudoPay = (op || {}).payment || {};
-      const rawPay = c.payment || {};
-      const status = embudoPay.status || rawPay.status || "";
-
-      if (!PAGADOS.includes(status)) return;
-
-      // Fecha de pago
-      const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
-      if (!isInGlobalFilter(datePago)) return;
-
-      const montoPagado = Number(
-        embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
-        rawPay.montoPagado  !== undefined ? rawPay.montoPagado :
-        (c.total || 0)
-      );
-      if (montoPagado > 0) facturadoMes += montoPagado;
-    };
-
-    mySanareCots.forEach(c => processCotFacturado(c, "sanare-cotizador"));
-    myNomadCots.forEach(c => processCotFacturado(c, "cotizador-nomad"));
+    // 2. Sanare = Facturado en SAI (Supabase) cruzando por médico del mes
+    const saiCots = window.SAI_COTS || [];
+    saiCots.forEach(r => {
+      if (isInGlobalFilter(r.fecha_infusion)) {
+        const nom = (r.medicos || '').trim().toLowerCase();
+        if (!nom) return;
+        const isMyDoc = myMedicos.some(m => (m.Nombre || '').trim().toLowerCase() === nom);
+        if (isMyDoc) {
+          facturadoMes += (Number(r.monto_del_servicio) || 0);
+        }
+      }
+    });
 
     
     let efectividad = 0;
@@ -358,7 +356,7 @@
       facturadoMesFmt: new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(facturadoMes),
       efectividadFmt: efectividad.toFixed(1) + '%',
       seguimientos: mySegs.length,
-      rawQuotes: { local: myLocalCots, sanare: mySanareCots, nomad: myNomadCots, embudo: embudoCots }
+      rawQuotes: { local: myLocalCots, sanare: mySanareCots, nomad: myNomadCots, embudo: embudoCots, medicos: myMedicos }
     };
   }
 
@@ -498,36 +496,37 @@
 
     // === Lógica de Facturado (Pagado) para el Panel ===
     let fSanare = 0, fNomad = 0;
-    const embudoCots = window.EMBUDO_COTS || [];
-    const PAGADOS = ["Pago confirmado", "Pago parcial", "Anticipo recibido"];
-
-    const processCotForPanel = (c, srcProject) => {
-      const srcId = c.id || "";
-      if (!srcId) return 0;
-      
-      const op = embudoCots.find(e => e.sourceDocId === srcId && e.sourceProject === srcProject);
-      
-      const embudoPay = (op || {}).payment || {};
-      const rawPay = c.payment || {};
-      const status = embudoPay.status || rawPay.status || "";
-      
-      if (!PAGADOS.includes(status)) return 0;
-      
-      const datePago = embudoPay.fechaPago || rawPay.fechaPago || c.createdAt || c.fechaEmision;
-      if (!isInFilter(datePago)) return 0;
-      
-      const montoPagado = Number(
-        embudoPay.montoPagado !== undefined ? embudoPay.montoPagado :
-        rawPay.montoPagado  !== undefined ? rawPay.montoPagado :
-        (c.total || 0)
-      );
-      
-      return isNaN(montoPagado) ? 0 : montoPagado;
+    
+    // Función auxiliar para sumar valores y checar estatus
+    const sumVal = (c) => parseFloat((c.total || c.VALOR || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const isCotAceptada = (s) => {
+      const u = (s || '').toUpperCase();
+      return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM');
     };
 
-    rawQuotes.sanare.forEach(c => { fSanare += processCotForPanel(c, "sanare-cotizador"); });
-    rawQuotes.nomad.forEach(c => { fNomad += processCotForPanel(c, "cotizador-nomad"); });
-    
+    // 1. Nomad = Cerradas/aceptadas de Nomad en el periodo seleccionado
+    if (rawQuotes.nomad) {
+      rawQuotes.nomad.forEach(c => {
+        if (isInFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+          fNomad += sumVal(c);
+        }
+      });
+    }
+
+    // 2. Sanare = Facturado en SAI (Supabase) en el periodo seleccionado cruzando por médico
+    const saiCotsPanel = window.SAI_COTS || [];
+    const myMedicosPanel = rawQuotes.medicos || [];
+    saiCotsPanel.forEach(r => {
+      if (isInFilter(r.fecha_infusion)) {
+        const nom = (r.medicos || '').trim().toLowerCase();
+        if (!nom) return;
+        const isMyDoc = myMedicosPanel.some(m => (m.Nombre || '').trim().toLowerCase() === nom);
+        if (isMyDoc) {
+          fSanare += (Number(r.monto_del_servicio) || 0);
+        }
+      }
+    });
+
     const totalFacturado = fSanare + fNomad;
 
     const factMontoEl = document.getElementById('kdFacturadoMonto');
