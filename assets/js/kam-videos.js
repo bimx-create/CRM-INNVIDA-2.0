@@ -4,7 +4,6 @@
     'DR. ALAIN RAMÍREZ': 'alain.mp4',
     'CLAUDIA': 'claudia.mp4',
     'ANAYELY TAPIA': 'anayely.mp4',
-    'OSCAR RANGEL': 'oscar.mp4',
     'MARYMAR': 'marymar.mp4',
     'DAVID SANTIAGO': 'david.mp4',
     'LIZETTE': 'LY.mp4'
@@ -14,7 +13,6 @@
     'DR. ALAIN RAMÍREZ': 'Dr. Alain Ramírez',
     'CLAUDIA': 'Claudia',
     'ANAYELY TAPIA': 'Anayely Tapia',
-    'OSCAR RANGEL': 'Oscar Rangel',
     'MARYMAR': 'Marymar',
     'DAVID SANTIAGO': 'David Santiago',
     'LIZETTE': 'Lizette Martinez'
@@ -206,7 +204,6 @@
       'ANAYELY': 'ANAYELY TAPIA', 'ANAYELI': 'ANAYELY TAPIA',
       'BERENICE': 'BERENICE ORDAZ',
       'DAYAN': 'DAYANA',
-      'OSCAR': 'OSCAR RANGEL',
       'MARYMAR': 'MARYMAR',
       'CLAUDIA': 'CLAUDIA',
       'DAVID': 'DAVID SANTIAGO',
