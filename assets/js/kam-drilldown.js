@@ -51,7 +51,7 @@
     }
     const displayName = kamNameEl.textContent.trim();
     const norm = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
-    const kamNorm = norm(displayName);
+    const kamNorm = kamNameEl.dataset.kamNorm || norm(displayName);
     _currentKam = { displayName, kamNorm };
 
     // Obtener datos

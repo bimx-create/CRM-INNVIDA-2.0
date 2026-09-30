@@ -185,11 +185,34 @@
           </div>
           <div class="actions">
             <button class="btn btn-ghost" id="downloadSegXLSX" style="color:var(--green);">📊 Descargar Excel</button>
+            <button class="btn btn-ghost" onclick="window.toggleKanbanAIReport()" style="color:var(--blue-light); border: 1px solid var(--blue); margin-left:8px;">🧠 Reporte IA (A / AA / AAA)</button>
           </div>
         </div>
-        
-        <div class="kanban-board" id="kanbanBoard">
-          <!-- Kanban inyectado por kam-dashboard.js -->
+
+        <!-- Tab bar -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button id="tabKanban" onclick="window.switchKanbanTab('kanban')"
+            style="padding:6px 18px; border-radius:8px; border:1px solid var(--blue); background:var(--blue); color:#fff; font-size:13px; cursor:pointer;">
+            📋 Tablero Kanban
+          </button>
+          <button id="tabAIReport" onclick="window.switchKanbanTab('ai')"
+            style="padding:6px 18px; border-radius:8px; border:1px solid var(--blue); background:transparent; color:var(--blue-light); font-size:13px; cursor:pointer;">
+            🧠 Clasificación IA
+          </button>
+        </div>
+
+        <!-- Kanban Board -->
+        <div id="kanbanBoardWrap">
+          <div class="kanban-board" id="kanbanBoard">
+            <!-- Kanban inyectado por kam-dashboard.js -->
+          </div>
+        </div>
+
+        <!-- AI Report Panel -->
+        <div id="aiReportPanel" style="display:none;">
+          <div id="aiReportContent" style="color:var(--text1); padding:8px 0;">
+            <p style="color:var(--text2);">Cargando análisis...</p>
+          </div>
         </div>
       </div>
 

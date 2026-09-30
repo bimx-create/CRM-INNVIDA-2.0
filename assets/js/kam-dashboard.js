@@ -39,7 +39,8 @@
     'DAVID':            'DAVID SANTIAGO',
     'LISETTE':          'LIZETTE',
     'LIZETH':           'LIZETTE',
-    'LISETH':           'LIZETTE'
+    'LISETH':           'LIZETTE',
+    'LIZETTE MARTINEZ': 'LIZETTE'
     // Agrega más alias aquí si hay otros nombres mal capturados, ej:
     // 'BERENICE': 'BERENICE ORDAZ',
   };
@@ -812,10 +813,18 @@
       
       let facturado = 0;
 
-      // 1. Nomad = cotizaciones Cerradas/Aceptadas en el periodo
-      const isCerrada = (s) => { const u = (s||'').toUpperCase(); return u.includes('CERRAD') || u.includes('ACEPT'); };
+      // 1. Cotizaciones Cerradas/Aceptadas en el periodo (Firebase Local, Sanare, Nomad)
+      const isCerrada = (s) => { const u = (s||'').toUpperCase(); return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM'); };
       const parseMon = (v) => parseFloat((v||'0').toString().replace(/[^0-9.-]+/g,'')) || 0;
 
+      const { localCots } = filterData(k, 'all');
+      
+      localCots.forEach(c => {
+        if (isDateInTimeFilter(c.fechaEmision || c.createdAt || c.FECHA) && isCerrada(c['STATUS'])) facturado += parseMon(c.total || c.VALOR);
+      });
+      sanareCots.forEach(c => {
+        if (isDateInTimeFilter(c.fechaEmision || c.createdAt) && isCerrada(c.status1 || c.status)) facturado += parseMon(c.total);
+      });
       nomadCots.forEach(c => {
         if (isDateInTimeFilter(c.fechaEmision || c.createdAt) && isCerrada(c.status1 || c.status)) {
           facturado += parseMon(c.total);
@@ -897,13 +906,42 @@
     const { medicos } = filterData(kamName, timeFilter);
     const hist = window.__hist_cache__ || [];
 
-    // Para cada médico, tomar su último estado de seguimiento
+    // Análisis IA de clasificación (A, AA, AAA)
+    const allQuotes = [ ...(window.COT_BASE||[]), ...(window.SANARE_COTS||[]), ...(window.NOMAD_COTS||[]) ];
+    const saiCots = window.SAI_COTS || [];
+    const isCotAceptada = (s) => { const u = (s||'').toUpperCase(); return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM'); };
+
+    // Para cada médico, tomar su último estado de seguimiento y analizar clasificación
     const medWithStage = medicos.map(m => {
-      const nombre = m['Nombre'] || m.nombre || '';
-      const regs = hist.filter(h => h.medico === nombre || h.medicoId === m.id);
+      const nombre = (m['Nombre'] || m.nombre || '').trim();
+      const nLower = nombre.toLowerCase();
+      const regs = hist.filter(h => (h.medico||'').trim() === nombre || h.medicoId === m.id);
       const last = regs.length ? regs[regs.length - 1] : null;
       const stage = last ? mapEstadoToStage(last.estado) : 'nuevo';
-      return { ...m, stage, lastSeg: last };
+
+      // -- Análisis: Facturación --
+      let facturado = 0;
+      allQuotes.forEach(q => {
+        const d = (q['MÉDICO'] || q.medico || q.doctor || '').trim().toLowerCase();
+        if (d === nLower && isCotAceptada(q.STATUS || q.status1 || q.status)) {
+           facturado += parseFloat((q.total || q.VALOR || '0').toString().replace(/[^0-9.-]+/g,'')) || 0;
+        }
+      });
+      saiCots.forEach(r => {
+        if ((r.medicos||'').trim().toLowerCase() === nLower) {
+           facturado += Number(r.monto_del_servicio) || 0;
+        }
+      });
+
+      // -- Análisis: Comentarios e Interés --
+      const allComments = regs.map(r => (r.comentarios || r.notas || '').toLowerCase()).join(' ');
+      const isHot = allComments.match(/interes|excelente|cotiza|compra|urgente|paciente|estudio/i);
+
+      let clasificacion = 'A';
+      if (facturado > 0 || (regs.length >= 3 && isHot)) clasificacion = 'AAA';
+      else if (regs.length >= 2 || isHot || stage === 'presentacion' || stage === 'cita') clasificacion = 'AA';
+
+      return { ...m, stage, lastSeg: last, clasificacion, facturado, regsCount: regs.length };
     });
 
     // Límite inicial 8 cards, pero renderizamos todas y ocultamos el resto
@@ -930,7 +968,10 @@
               <div class="kanban-card hidden-kcard" draggable="true" data-id="${m.id || ''}" data-nombre="${nombre_field(m)}"
                    ondragstart="window.onKanbanDragStart(event,this)"
                    style="${index >= 8 ? 'display:none;' : ''}">
-                <div class="kanban-card-name">${nombre_field(m)}</div>
+                <div class="kanban-card-name" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                  <span style="flex:1;">${nombre_field(m)}</span>
+                  <span style="font-size:10px; font-weight:800; padding:2px 5px; border-radius:4px; background:${m.clasificacion==='AAA'?'#FDE047':m.clasificacion==='AA'?'#E5E7EB':'#374151'}; color:${m.clasificacion==='AAA'?'#854D0E':m.clasificacion==='AA'?'#374151':'#9CA3AF'}; border: 1px solid ${m.clasificacion==='AAA'?'#FACC15':m.clasificacion==='AA'?'#D1D5DB':'#4B5563'};" title="Análisis de aporte IA: ${fmt(m.facturado)} / ${m.regsCount} seg.">${m.clasificacion}</span>
+                </div>
                 <div class="kanban-card-meta">
                   ${hospital_field(m) ? `<span>🏥 ${hospital_field(m)}</span>` : ''}
                   ${esp_field(m) ? `<span>🔬 ${esp_field(m)}</span>` : ''}
@@ -1121,3 +1162,185 @@
 
   console.log('[Dashboard] KAM dashboard module loaded');
 })();
+
+/* =====================================================================
+   PESTAÑA CLASIFICACIÓN IA  (A / AA / AAA)
+   Se monta fuera del IIFE para acceso global
+   ===================================================================== */
+window.switchKanbanTab = function(tab) {
+  const boardWrap  = document.getElementById('kanbanBoardWrap');
+  const aiPanel    = document.getElementById('aiReportPanel');
+  const tabKanban  = document.getElementById('tabKanban');
+  const tabAI      = document.getElementById('tabAIReport');
+  if (!boardWrap || !aiPanel) return;
+
+  if (tab === 'ai') {
+    boardWrap.style.display  = 'none';
+    aiPanel.style.display    = 'block';
+    tabKanban.style.background = 'transparent';
+    tabKanban.style.color      = 'var(--blue-light)';
+    tabAI.style.background     = 'var(--blue)';
+    tabAI.style.color          = '#fff';
+    window.renderAIReport();
+  } else {
+    boardWrap.style.display  = 'block';
+    aiPanel.style.display    = 'none';
+    tabKanban.style.background = 'var(--blue)';
+    tabKanban.style.color      = '#fff';
+    tabAI.style.background     = 'transparent';
+    tabAI.style.color          = 'var(--blue-light)';
+  }
+};
+
+window.renderAIReport = function() {
+  const container = document.getElementById('aiReportContent');
+  if (!container) return;
+
+  const allMedicos = window.MED_BASE || [];
+  const hist       = window.__hist_cache__ || [];
+  const allQuotes  = [ ...(window.COT_BASE||[]), ...(window.SANARE_COTS||[]), ...(window.NOMAD_COTS||[]) ];
+  const saiCots    = window.SAI_COTS || [];
+  const norm       = (k) => window.normalizeKAM ? window.normalizeKAM(k) : (k||'').trim().toUpperCase();
+
+  const isCerrada = (s) => { const u=(s||'').toUpperCase(); return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM'); };
+  const fmt = (n) => new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 }).format(n||0);
+
+  // Construir análisis por médico
+  const analisis = allMedicos.map(m => {
+    const nombre   = (m['Nombre'] || m.nombre || '').trim();
+    if (!nombre) return null;
+    const nLower   = nombre.toLowerCase();
+    const kamRaw   = m['GERENTE/KAM'] || m.kam || '';
+    const kamNorm  = norm(kamRaw);
+    const regs     = hist.filter(h => (h.medico||'').trim() === nombre || h.medicoId === m.id);
+    const last     = regs.length ? regs[regs.length - 1] : null;
+    const stage    = last ? (last.estado || 'Sin estatus') : 'Sin seguimiento';
+
+    // Facturación acumulada
+    let facturado = 0;
+    allQuotes.forEach(q => {
+      const d = (q['MÉDICO']||q.medico||q.doctor||'').trim().toLowerCase();
+      if (d === nLower && isCerrada(q.STATUS||q.status1||q.status))
+        facturado += parseFloat((q.total||q.VALOR||'0').toString().replace(/[^0-9.-]+/g,'')) || 0;
+    });
+    saiCots.forEach(r => {
+      if ((r.medicos||'').trim().toLowerCase() === nLower)
+        facturado += Number(r.monto_del_servicio) || 0;
+    });
+
+    // Palabras clave en comentarios
+    const allComments = regs.map(r => (r.comentarios||r.notas||'').toLowerCase()).join(' ');
+    const keywordsHot   = ['interes','excelente','cotiza','compra','urgente','paciente','estudio','solicita','confirma'];
+    const keywordsFound = keywordsHot.filter(kw => allComments.includes(kw));
+    const isHot = keywordsFound.length > 0;
+
+    // Clasificación
+    let clasificacion, razones = [];
+    if (facturado > 0) {
+      clasificacion = 'AAA';
+      razones.push(`✅ Ha facturado ${fmt(facturado)}`);
+    } else if (regs.length >= 3 && isHot) {
+      clasificacion = 'AAA';
+      razones.push(`✅ ${regs.length} seguimientos con alta señal de interés`);
+    } else if (regs.length >= 2 || isHot || stage.toLowerCase().includes('present') || stage.toLowerCase().includes('cita') || stage.toLowerCase().includes('negoc')) {
+      clasificacion = 'AA';
+      if (regs.length >= 2) razones.push(`📌 ${regs.length} seguimientos registrados`);
+      if (isHot) razones.push(`💬 Comentarios relevantes: "${keywordsFound.join(', ')}"`);
+      if (stage.toLowerCase().includes('present')) razones.push('🎯 En etapa de presentación');
+      if (stage.toLowerCase().includes('cita')) razones.push('📅 Cita agendada');
+      if (stage.toLowerCase().includes('negoc')) razones.push('🤝 En negociación');
+    } else {
+      clasificacion = 'A';
+      if (regs.length === 1) razones.push('📝 1 seguimiento inicial');
+      if (regs.length === 0) razones.push('🔍 Sin seguimientos aún');
+    }
+
+    if (last) razones.push(`🕐 Último contacto: ${last.fecha || 'fecha no registrada'} — "${stage}"`);
+
+    return { nombre, kamNorm, clasificacion, razones, facturado, regsCount: regs.length };
+  }).filter(Boolean);
+
+  // Agrupar por clasificación
+  const grupos = { AAA: [], AA: [], A: [] };
+  analisis.forEach(d => grupos[d.clasificacion].push(d));
+
+  // Ordenar cada grupo: primero los de mayor facturación, luego más seguimientos
+  const sortFn = (a, b) => (b.facturado - a.facturado) || (b.regsCount - a.regsCount);
+  grupos.AAA.sort(sortFn);
+  grupos.AA.sort(sortFn);
+  grupos.A.sort(sortFn);
+
+  const badgeStyle = (cl) => {
+    if (cl === 'AAA') return 'background:#FDE047;color:#854D0E;border:1px solid #FACC15;';
+    if (cl === 'AA')  return 'background:#CBD5E1;color:#1E293B;border:1px solid #94A3B8;';
+    return 'background:#374151;color:#9CA3AF;border:1px solid #4B5563;';
+  };
+
+  const renderGroup = (cl, items) => {
+    if (!items.length) return '';
+    const clrHeader = cl === 'AAA' ? '#FACC15' : cl === 'AA' ? '#94A3B8' : '#6B7280';
+    const desc = cl === 'AAA'
+      ? 'Médicos de alto valor: han facturado o tienen interés demostrado con múltiples seguimientos.'
+      : cl === 'AA'
+      ? 'Médicos con potencial activo: están en proceso de seguimiento y muestran señales positivas.'
+      : 'Médicos en exploración: recién registrados o sin suficiente historial de seguimiento.';
+
+    const rows = items.map(d => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+        <td style="padding:10px 12px; font-weight:600; color:var(--text1);">${d.nombre}</td>
+        <td style="padding:10px 12px; color:var(--text2); font-size:12px;">${d.kamNorm || '—'}</td>
+        <td style="padding:10px 12px; text-align:center;">
+          <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; ${badgeStyle(cl)}">${cl}</span>
+        </td>
+        <td style="padding:10px 12px; color:${d.facturado > 0 ? '#4ADE80' : 'var(--text2)'}; font-weight:${d.facturado > 0 ? '700' : '400'};">
+          ${d.facturado > 0 ? fmt(d.facturado) : '—'}
+        </td>
+        <td style="padding:10px 12px; color:var(--text2); font-size:12px; line-height:1.6;">
+          ${d.razones.map(r => `<div>${r}</div>`).join('')}
+        </td>
+      </tr>`).join('');
+
+    return `
+      <div style="margin-bottom:28px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+          <span style="font-size:22px; font-weight:900; color:${clrHeader};">${cl}</span>
+          <span style="color:var(--text2); font-size:13px;">${desc}</span>
+          <span style="margin-left:auto; background:rgba(255,255,255,0.05); padding:2px 10px; border-radius:12px; font-size:12px; color:var(--text2);">${items.length} médicos</span>
+        </div>
+        <div style="overflow-x:auto; border-radius:10px; border:1px solid rgba(255,255,255,0.07);">
+          <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:rgba(255,255,255,0.04); color:var(--text2); font-size:11px; text-transform:uppercase;">
+                <th style="padding:8px 12px; text-align:left;">Médico</th>
+                <th style="padding:8px 12px; text-align:left;">KAM</th>
+                <th style="padding:8px 12px; text-align:center;">Nivel</th>
+                <th style="padding:8px 12px; text-align:left;">Facturado</th>
+                <th style="padding:8px 12px; text-align:left;">Razones del análisis</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  };
+
+  // Filtro de KAM activo
+  const kamActual = window.__kamSelected || 'Todos';
+
+  container.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h3 style="color:var(--text1); margin:0; font-size:18px;">🧠 Análisis de Clasificación de Médicos</h3>
+        <p style="color:var(--text2); margin:4px 0 0; font-size:13px;">KAM activo: <strong style="color:var(--blue-light);">${kamActual}</strong> · ${analisis.length} médicos analizados</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span style="padding:4px 14px; border-radius:20px; background:#FDE047; color:#854D0E; font-weight:800; font-size:13px;">AAA: ${grupos.AAA.length}</span>
+        <span style="padding:4px 14px; border-radius:20px; background:#CBD5E1; color:#1E293B; font-weight:800; font-size:13px;">AA: ${grupos.AA.length}</span>
+        <span style="padding:4px 14px; border-radius:20px; background:#374151; color:#9CA3AF; font-weight:800; font-size:13px;">A: ${grupos.A.length}</span>
+      </div>
+    </div>
+    ${renderGroup('AAA', grupos.AAA)}
+    ${renderGroup('AA',  grupos.AA)}
+    ${renderGroup('A',   grupos.A)}
+  `;
+};

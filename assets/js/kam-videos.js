@@ -204,6 +204,7 @@
       'ANAYELY': 'ANAYELY TAPIA', 'ANAYELI': 'ANAYELY TAPIA',
       'BERENICE': 'BERENICE ORDAZ',
       'DAYAN': 'DAYANA',
+      'OSCAR': 'OSCAR RANGEL',
       'MARYMAR': 'MARYMAR',
       'CLAUDIA': 'CLAUDIA',
       'DAVID': 'DAVID SANTIAGO',
@@ -314,7 +315,21 @@
     });
 
     // === FACTURADO DEL MES ===
-    // 1. Nomad = Cerradas/aceptadas de Nomad del mes
+    // 1. Cotizaciones Cerradas/Aceptadas del mes (Local, Sanare Firebase, Nomad Firebase)
+    myLocalCots.forEach(c => {
+      const val = sumVal(c);
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt || c.FECHA) && isCotAceptada(c['STATUS'])) {
+        facturadoMes += val;
+      }
+    });
+
+    mySanareCots.forEach(c => {
+      const val = sumVal(c);
+      if (isInGlobalFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
+        facturadoMes += val;
+      }
+    });
+
     myNomadCots.forEach(c => {
       const val = sumVal(c);
       if (isInGlobalFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
@@ -362,6 +377,7 @@
     
     const panel = document.getElementById('kamDetailsPanel');
     document.getElementById('kdName').textContent = displayName;
+    document.getElementById('kdName').dataset.kamNorm = kamNorm;
     
     // Animar contadores básicos
     animateValue(document.getElementById('kdMedicos'), 0, kpis.medicos, 800);
@@ -501,12 +517,20 @@
       return u.includes('CERRAD') || u.includes('ACEPT') || u.includes('CONFIRM');
     };
 
-    // 1. Nomad = Cerradas/aceptadas de Nomad en el periodo seleccionado
+    // 1. Cotizaciones Cerradas/Aceptadas
     if (rawQuotes.nomad) {
       rawQuotes.nomad.forEach(c => {
-        if (isInFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) {
-          fNomad += sumVal(c);
-        }
+        if (isInFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) fNomad += sumVal(c);
+      });
+    }
+    if (rawQuotes.local) {
+      rawQuotes.local.forEach(c => {
+        if (isInFilter(c.fechaEmision || c.createdAt || c.FECHA) && isCotAceptada(c['STATUS'])) fSanare += sumVal(c);
+      });
+    }
+    if (rawQuotes.sanare) {
+      rawQuotes.sanare.forEach(c => {
+        if (isInFilter(c.fechaEmision || c.createdAt) && isCotAceptada(c.status1 || c.status)) fSanare += sumVal(c);
       });
     }
 
