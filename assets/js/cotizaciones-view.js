@@ -77,6 +77,8 @@
     }
   });
 
+  window.renderCotizacionesTable = renderTable;
+
   function getGlobalData() {
     const data = [];
     
@@ -86,12 +88,11 @@
         if (!c.MEDICO && !c.VALOR) return;
         const kam = c.KAM || "";
         const id = btoa(unescape(encodeURIComponent((c.MEDICO + c.VALOR + kam).slice(0, 50)))).replace(/=/g, '');
-        // Fecha del CRM local viene como nombre de mes en español (ej: "JULIO"). Filtrar solo julio en adelante no aplica a texto.
         data.push({
           id: `LOCAL_${id}`,
           origen: 'CRM Local',
           fecha: c.FECHA || 'N/A',
-          fechaTs: null, // Sin timestamp real en CRM local
+          fechaTs: null,
           medico: c.MEDICO || 'Sin nombre',
           paciente: c.PACIENTE || 'N/A',
           esquema: c.ESQUEMA || c.PACIENTE || 'N/A',
@@ -102,7 +103,6 @@
       });
     }
 
-    // Helper para parsear timestamp de Firebase
     const getTs = (val) => {
       if (!val) return null;
       if (typeof val === 'string') return new Date(val);
@@ -111,21 +111,32 @@
       return new Date(val);
     };
 
-    // Filtro: solo registros desde julio 2025 en adelante
-    const DESDE = new Date(2025, 6, 1); // 1 julio 2025
-    const esReciente = (ts) => {
-      if (!ts) return false;
-      return ts >= DESDE;
-    };
-
     // SANARE
     if (window.SANARE_COTS) {
       window.SANARE_COTS.forEach(c => {
         const ts = getTs(c.fechaEmision || c.createdAt || c.fechaAtencion);
-        if (!esReciente(ts)) return; // Solo julio 2025+
         data.push({
           id: `SANARE_${c.id}`,
           origen: 'Sanaré',
+          fecha: ts ? ts.toLocaleDateString('es-MX') : 'N/A',
+          fechaTs: ts,
+          medico: c.medico || c.nombre || 'Sin nombre',
+          paciente: c.paciente || c.nombrePaciente || 'N/A',
+          esquema: c.medicamento || c.producto || 'N/A',
+          monto: parseFloat((c.total || c.subtotal || c.monto || '0').toString().replace(/[^0-9.-]+/g, '')) || 0,
+          kam: c.kam || c.KAM || '',
+          estatusOriginal: (c.status1 || c.status || c.estatus || 'PENDIENTE').toUpperCase()
+        });
+      });
+    }
+
+    // DASHBOARD (Cotizador 3.0)
+    if (window.DASHBOARD_COTS) {
+      window.DASHBOARD_COTS.forEach(c => {
+        const ts = getTs(c.fechaEmision || c.createdAt || c.fechaAtencion);
+        data.push({
+          id: `DASHBOARD_${c.id}`,
+          origen: 'Dashboard',
           fecha: ts ? ts.toLocaleDateString('es-MX') : 'N/A',
           fechaTs: ts,
           medico: c.medico || c.nombre || 'Sin nombre',
@@ -142,7 +153,6 @@
     if (window.NOMAD_COTS) {
       window.NOMAD_COTS.forEach(c => {
         const ts = getTs(c.fechaEmision || c.createdAt || c.fechaAtencion);
-        if (!esReciente(ts)) return; // Solo julio 2025+
         data.push({
           id: `NOMAD_${c.id}`,
           origen: 'Nomad',
@@ -154,6 +164,35 @@
           monto: parseFloat((c.total || c.subtotal || c.monto || '0').toString().replace(/[^0-9.-]+/g, '')) || 0,
           kam: c.kam || c.KAM || '',
           estatusOriginal: (c.status1 || c.status || c.estatus || 'PENDIENTE').toUpperCase()
+        });
+      });
+    }
+
+    // SAI SUPABASE
+    if (window.SAI_COTS) {
+      const medicosBase = window.MED_BASE || [];
+      window.SAI_COTS.forEach(r => {
+        const ts = getTs(r.fecha_infusion || r.created_at);
+        const medName = (r.medicos || '').trim();
+        
+        // Cruzar KAM
+        let kamAsignado = '';
+        if (medName) {
+          const medObj = medicosBase.find(m => (m.Nombre || m.nombre || '').trim().toLowerCase() === medName.toLowerCase());
+          if (medObj) kamAsignado = medObj['GERENTE/KAM'] || medObj.kam || '';
+        }
+
+        data.push({
+          id: `SAI_${r.id}`,
+          origen: 'SAI (Supabase)',
+          fecha: ts ? ts.toLocaleDateString('es-MX') : (r.fecha_infusion || 'N/A'),
+          fechaTs: ts,
+          medico: r.medicos || 'Sin nombre',
+          paciente: r.paciente || 'N/A',
+          esquema: r.tratamiento || r.servicio || 'N/A',
+          monto: Number(r.monto_del_servicio) || 0,
+          kam: kamAsignado,
+          estatusOriginal: 'CERRADA'
         });
       });
     }

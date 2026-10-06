@@ -54,13 +54,35 @@
       appId: "1:988847530129:web:fd89909a969431df329f30"
     };
 
+    const firebaseConfigDashboard = {
+      apiKey: "AIzaSyCUFENXy1PE7Q6lX7c54F8hH3RjStM9Fdc",
+      authDomain: "cotizador-30.firebaseapp.com",
+      projectId: "cotizador-30",
+      storageBucket: "cotizador-30.firebasestorage.app",
+      messagingSenderId: "150005004914",
+      appId: "1:150005004914:web:5b217c06aa13e34b9960eb"
+    };
+
     const appSanare = initializeApp(firebaseConfigSanare, "sanareAppExt");
     const appNomad  = initializeApp(firebaseConfigNomad, "nomadAppExt");
     const appEmbudo = initializeApp(firebaseConfigEmbudo, "embudoAppExt");
+    const appDashboard = initializeApp(firebaseConfigDashboard, "dashboardAppExt");
 
     const dbSanare = getFirestore(appSanare);
     const dbNomad  = getFirestore(appNomad);
     const dbEmbudo = getFirestore(appEmbudo);
+    const dbDashboard = getFirestore(appDashboard);
+
+    window.DASHBOARD_COTS = [];
+
+    onSnapshot(collection(dbDashboard, "cotizaciones"), (snap) => {
+      window.DASHBOARD_COTS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const view = document.getElementById('view-kam-videos');
+      if (view && !view.classList.contains('hidden')) {
+        window.renderKamVideosGrid();
+      }
+      if (window.renderCotizacionesTable) window.renderCotizacionesTable();
+    });
 
     onSnapshot(collection(dbSanare, "cotizaciones"), (snap) => {
       window.SANARE_COTS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
